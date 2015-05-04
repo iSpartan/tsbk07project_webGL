@@ -187,6 +187,29 @@
         };
     }
 
+	function getDistanceToModel(modelPosition, cameraPosition){
+		var dx = modelPosition.x - cameraPosition.x;
+		var dy = modelPosition.y - cameraPosition.y;
+		var dz = modelPosition.z - cameraPosition.z;
+		return sqrt(dx*dx+dy*dy+dz*dz) //just between points
+
+	}
+	function getClosestDistance(someModels, cameraPosition){
+		var shortestDist = 0, distance = 0;
+		var modelPositionVec;
+		for (var key in someModels) {
+			 modelPositionVec = getModelPosistion(key.positionMatrix, cameraPosition);
+			distance = getDistanceToModel(key, cameraPosition); 
+            if( distance < shortestDist)
+				shortestDist = distance;
+			};
+		return shortestDist;
+	}
+	function getModelPosistion(posMatrix, camMat){
+		var pos = camMat * posMatrix;
+		return {pos[3],pos[7], pos[11]};
+	}
+	
     function drawModel(model) {
         // now to render the mesh
         gl.bindBuffer(gl.ARRAY_BUFFER,  model.vertexBuffer);
@@ -242,7 +265,7 @@
 
     function loadObjects(){
         OBJ.downloadMeshes({
-            'teapot': 'objects/teapot.obj'            
+            'teapot': 'objects/floor.obj'            
         }, webGLAddObj);
     }
 
@@ -316,7 +339,9 @@
 
         if (currentlyPressedKeys[38] || currentlyPressedKeys[87]) {
             // Up cursor key or W
+			if(getClosestDistance(models, mvMatrix) > 0)
             speed = 0.003;
+			
         } else if (currentlyPressedKeys[40] || currentlyPressedKeys[83]) {
             // Down cursor key
             speed = -0.003;
