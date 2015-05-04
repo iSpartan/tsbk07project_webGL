@@ -42,9 +42,10 @@
         shaderProgram.textureCoordAttribute = gl.getAttribLocation(shaderProgram, "aTextureCoord");
         gl.enableVertexAttribArray(shaderProgram.textureCoordAttribute);
 
-        shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
+        shaderProgram.frustum = gl.getUniformLocation(shaderProgram, "frustum");
         shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
         shaderProgram.nMatrixUniform = gl.getUniformLocation(shaderProgram, "uNMatrix");
+        shaderProgram.camMatrix = gl.getUniformLocation(shaderProgram, "camMatrix");
         shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
         shaderProgram.materialShininessUniform = gl.getUniformLocation(shaderProgram, "uMaterialShininess");
         shaderProgram.showSpecularHighlightsUniform = gl.getUniformLocation(shaderProgram, "uShowSpecularHighlights");
@@ -79,15 +80,15 @@
         galvanizedTexture.image.src = "textures/arroway.de_metal+structure+06_d100_flat.jpg";
     }
 
-    var mvMatrix = mat4.create();
-    var pMatrix = mat4.create();
+    var camMatrix = mat4.create();
+    var frustum = mat4.create();
 
-    function setMatrixUniforms() {
-        gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
-        gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
+    function setMatrixUniforms(model) {
+        gl.uniformMatrix4fv(shaderProgram.frustum, false, frustum);
+        gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, model.positionMatrix);
 
         var normalMatrix = mat3.create();
-        mat4.toInverseMat3(mvMatrix, normalMatrix);
+        mat4.toInverseMat3(model.positionMatrix, normalMatrix);
         mat3.transpose(normalMatrix);
         gl.uniformMatrix3fv(shaderProgram.nMatrixUniform, false, normalMatrix);
     }
@@ -96,11 +97,39 @@
         return degrees * Math.PI / 180;
     }
 
-    var models = {};
+    var ourMeshes = {};
+    var ourObjects = [];
 
     function webGLAddObj(meshes){
-        models = meshes;
-        OBJ.initMeshBuffers(gl, models.teapot);
+        ourMeshes = meshes;
+        OBJ.initMeshBuffers(gl, ourMeshes.teapot);
+        createObjects();
+    }
+
+    function createObjects(){
+        var teapot1, teapot2, mesh;
+        mesh = ourMeshes.teapot;
+        teapot1 = {name:"teapot1"};
+        teapot1.meshData = mesh;
+
+        teapot2 = {name:"teapot2"};
+        teapot2.meshData = mesh;
+
+        var teapot1Mat = mat4.create(), teapot2Mat = mat4.create();
+
+        mat4.identity(teapot1Mat);
+        mat4.translate(teapot1Mat, [-10, 0, -40]);
+        mat4.rotate(teapot1Mat, degToRad(23.4), [1, 0, -1]);
+        mat4.rotate(teapot1Mat, degToRad(teapotAngle), [0, 1, 0]);
+        teapot1.positionMatrix = teapot1Mat;
+        ourObjects.push(teapot1);
+
+        mat4.identity(teapot2Mat);
+        mat4.translate(teapot2Mat, [10, 0, -40]);
+        mat4.rotate(teapot2Mat, degToRad(-23.4), [1, 0, -1]);
+        mat4.rotate(teapot2Mat, degToRad(-teapotAngle), [0, 1, 0]);
+        teapot2.positionMatrix = teapot2Mat;
+        ourObjects.push(teapot2);
     }
 
     var teapotAngle = 180;
@@ -147,16 +176,11 @@
         var texture = document.getElementById("texture").value;
         gl.uniform1i(shaderProgram.useTexturesUniform, texture != "none");
 
-        mat4.identity(mvMatrix);
-
-
-        mat4.translate(mvMatrix, [-xPos, -yPos, -zPos]);
-        mat4.rotate(mvMatrix, degToRad(-pitch), [1, 0, 0]);
-        mat4.rotate(mvMatrix, degToRad(-yaw), [0, 1, 0]);
-
-        mat4.translate(mvMatrix, [-10, 0, -40]);
-        mat4.rotate(mvMatrix, degToRad(23.4), [1, 0, -1]);
-        mat4.rotate(mvMatrix, degToRad(teapotAngle), [0, 1, 0]);
+        mat4.identity(camMatrix);
+        mat4.rotate(camMatrix, degToRad(-pitch), [1, 0, 0]);
+        mat4.rotate(camMatrix, degToRad(-yaw), [0, 1, 0]);
+        mat4.translate(camMatrix, [-xPos, -yPos, -zPos]);
+        gl.uniformMatrix4fv(shaderProgram.camMatrix, false, camMatrix);
 
         gl.activeTexture(gl.TEXTURE0);
         if (texture == "earth") {
@@ -168,44 +192,30 @@
 
         gl.uniform1f(shaderProgram.materialShininessUniform, parseFloat(document.getElementById("shininess").value));
 
-        for (var key in models) {
-            drawModel(models[key])
-        };
-
-        mat4.identity(mvMatrix);
-
-        mat4.rotate(mvMatrix, degToRad(-pitch), [1, 0, 0]);
-        mat4.rotate(mvMatrix, degToRad(-yaw), [0, 1, 0]);
-        mat4.translate(mvMatrix, [-xPos, -yPos, -zPos]);
-
-        mat4.translate(mvMatrix, [10, 0, -40]);
-        mat4.rotate(mvMatrix, degToRad(-23.4), [1, 0, -1]);
-        mat4.rotate(mvMatrix, degToRad(-teapotAngle), [0, 1, 0]);
-
-        for (var key in models) {
-            drawModel(models[key])
+        for (var i = 0; i < ourObjects.length; i++) {
+            drawModel(ourObjects[i]);
         };
     }
 
     function drawModel(model) {
         // now to render the mesh
-        gl.bindBuffer(gl.ARRAY_BUFFER,  model.vertexBuffer);
-        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute,  model.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER,  model.meshData.vertexBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute,  model.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-        if(! model.textures.length){
+        if(! model.meshData.textures.length){
             gl.disableVertexAttribArray(shaderProgram.textureCoordAttribute);
         } else {
             gl.enableVertexAttribArray(shaderProgram.textureCoordAttribute);
-            gl.bindBuffer(gl.ARRAY_BUFFER,  model.textureBuffer);
-            gl.vertexAttribPointer(shaderProgram.textureCoordAttribute,  model.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
+            gl.bindBuffer(gl.ARRAY_BUFFER,  model.meshData.textureBuffer);
+            gl.vertexAttribPointer(shaderProgram.textureCoordAttribute,  model.meshData.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
         }
 
-        gl.bindBuffer(gl.ARRAY_BUFFER,  model.normalBuffer);
-        gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute,  model.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER,  model.meshData.normalBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute,  model.meshData.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  model.indexBuffer);
-        setMatrixUniforms();
-        gl.drawElements(gl.TRIANGLES,  model.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  model.meshData.indexBuffer);
+        setMatrixUniforms(model);
+        gl.drawElements(gl.TRIANGLES,  model.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
     }
 
 
@@ -218,12 +228,19 @@
 
             teapotAngle += 0.05 * elapsed;
 
-            if (speed != 0) {
-                xPos -= Math.sin(degToRad(yaw)) * speed * elapsed;
-                zPos -= Math.cos(degToRad(yaw)) * speed * elapsed;
+            if (speedZ != 0) {
+                zPos += speedZ * elapsed;
 
-                joggingAngle += elapsed * 0.6; // 0.6 "fiddle factor" - makes it feel more realistic :-)
-                yPos = Math.sin(degToRad(joggingAngle)) / 20 + 0.4
+            //    joggingAngle += elapsed * 0.2; // 0.6 "fiddle factor" - makes it feel more realistic :-)
+            //    yPos += Math.sin(degToRad(joggingAngle)) / 40 + 0.2
+            }
+
+            if (speedX != 0) {
+                xPos += speedX * elapsed;
+            }
+
+            if (speedY != 0) {
+                yPos += speedY * elapsed;
             }
 
             yaw += yawRate * elapsed;
@@ -260,7 +277,7 @@
         document.onkeydown = handleKeyDown;
         document.onkeyup = handleKeyUp;
 
-        mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+        mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, frustum);
 
         tick();
     }
@@ -291,37 +308,63 @@
     var yPos = 0.4;
     var zPos = 0;
 
-    var speed = 0;
+    var speedZ = 0, speedY = 0, speedX = 0;
 
     function handleKeys() {
-        if (currentlyPressedKeys[81]) {
-            // Page Up
+
+        // Look up or down
+        if (currentlyPressedKeys[104]) {
+            // Numpad 8
             pitchRate = 0.1;
-        } else if (currentlyPressedKeys[69]) {
-            // Page Down
+        } else if (currentlyPressedKeys[101]) {
+            // Numpad 5
             pitchRate = -0.1;
         } else {
             pitchRate = 0;
         }
 
-        if (currentlyPressedKeys[37] || currentlyPressedKeys[65]) {
-            // Left cursor key or A
+        // look righ or left
+        if (currentlyPressedKeys[100]) {
+            // Numpad 4
             yawRate = 0.1;
-        } else if (currentlyPressedKeys[39] || currentlyPressedKeys[68]) {
-            // Right cursor key or D
+        } else if (currentlyPressedKeys[102]) {
+            // Numpad 6
             yawRate = -0.1;
         } else {
             yawRate = 0;
         }
 
-        if (currentlyPressedKeys[38] || currentlyPressedKeys[87]) {
-            // Up cursor key or W
-            speed = 0.003;
-        } else if (currentlyPressedKeys[40] || currentlyPressedKeys[83]) {
-            // Down cursor key
-            speed = -0.003;
+        // Go forward or backward
+        if (currentlyPressedKeys[87]) {
+            //  W
+            speedZ = 0.003;
+        } else if (currentlyPressedKeys[83]) {
+            // S
+            speedZ = -0.003;
         } else {
-            speed = 0;
+            speedZ = 0;
+        }
+
+        // Go righ or left
+        if (currentlyPressedKeys[68]) {
+            //  D
+            speedX = 0.003;
+        } else if (currentlyPressedKeys[65]) {
+            //  A
+            speedX = -0.003;
+        } else {
+            speedX = 0;
+        }
+
+        // Go up or down
+        if (currentlyPressedKeys[69]) {
+            //  E
+            speedY = 0.003;
+        } else if (currentlyPressedKeys[81]) {
+            //  Q
+            speedY = -0.003;
+        } else {
+            speedY = 0;
         }
 
     }
