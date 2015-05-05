@@ -197,27 +197,40 @@
         };
     }
 
-	function getDistanceToModel(modelPosition, cameraPosition){
-		var dx = modelPosition.x - cameraPosition.x;
-		var dy = modelPosition.y - cameraPosition.y;
-		var dz = modelPosition.z - cameraPosition.z;
-		return sqrt(dx*dx+dy*dy+dz*dz) //just between points
+	function getDistanceToModel(modelPositionVec, cameraPosition){
+		console.log(modelPositionVec.x);
+	//	console.log(modelPositionVec.y);
+	//	console.log(modelPositionVec.z);
+		console.log(cameraPosition[12]);
+		console.log(cameraPosition[13]);
+		console.log(cameraPosition[14]);
+		console.log("-------------")
+		var dx = modelPositionVec.x - cameraPosition[12];
+		var dy = modelPositionVec.y - cameraPosition[13];
+		var dz = modelPositionVec.z - cameraPosition[14];
+		return Math.sqrt(dx*dx+dy*dy+dz*dz) //just between points
 
 	}
 	function getClosestDistance(someModels, cameraPosition){
 		var shortestDist = 0, distance = 0;
-		var modelPositionVec;
-		for (var key in someModels) {
-			 modelPositionVec = getModelPosistion(key.positionMatrix, cameraPosition);
-			distance = getDistanceToModel(key, cameraPosition); 
+		var modelPositionVec = {name:"modelPosVec"};
+		for (var i = 0; i < someModels.length; i++){
+			 modelPositionVec.posVec = getModelPosistion(someModels[i].positionMatrix, cameraPosition);
+			distance = getDistanceToModel(modelPositionVec, cameraPosition); 
             if( distance < shortestDist)
 				shortestDist = distance;
 			};
 		return shortestDist;
 	}
 	function getModelPosistion(posMatrix, camMat){
-		var pos = camMat * posMatrix;
-		return {pos[3],pos[7], pos[11]};
+		
+		var pos = mat4.create;
+		pos = mat4.multiply(pos, camMat, posMatrix);
+		var posVec = {name:"posVec"};
+		posVec.x = pos[3];
+		posVec.y = pos[7];
+		posVec.z = pos[11];
+		return posVec;
 	}
 	
     function drawModel(model) {
@@ -361,6 +374,7 @@
         // Go forward or backward
         if (currentlyPressedKeys[87]) {
             //  W
+			if(getClosestDistance(ourObjects, camMatrix) > 10)
             speedZ = 0.003;
         } else if (currentlyPressedKeys[83]) {
             // S
