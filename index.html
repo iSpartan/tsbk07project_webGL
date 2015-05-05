@@ -5,7 +5,7 @@
 <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
 
 <script type="text/javascript" src="utils/jquery-1.11.2.min.js"></script>
-<script type="text/javascript" src="utils/glMatrix-0.9.5.min.js"></script>
+<script type="text/javascript" src="utils/gl-matrix.js"></script>
 <script type="text/javascript" src="utils/loadShaderUtil.js"></script>
 <script type="text/javascript" src="utils/webgl-obj-loader.js"></script>
 <script type="text/javascript" src="utils/webgl-utils.js"></script>
@@ -69,6 +69,7 @@
     }
 
     var galvanizedTexture;
+    var earthTexture;
 
     function initTextures() {
 
@@ -78,18 +79,26 @@
             handleLoadedTexture(galvanizedTexture)
         }
         galvanizedTexture.image.src = "textures/arroway.de_metal+structure+06_d100_flat.jpg";
+
+        earthTexture = gl.createTexture();
+        earthTexture.image = new Image();
+        earthTexture.image.onload = function () {
+            handleLoadedTexture(earthTexture)
+        }
+        earthTexture.image.src = "textures/earth.jpg";
     }
 
     var camMatrix = mat4.create();
     var frustum = mat4.create();
 
     function setMatrixUniforms(model) {
-        gl.uniformMatrix4fv(shaderProgram.frustum, false, frustum);
         gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, model.positionMatrix);
 
         var normalMatrix = mat3.create();
-        mat4.toInverseMat3(model.positionMatrix, normalMatrix);
-        mat3.transpose(normalMatrix);
+        mat3.fromMat4(normalMatrix, model.positionMatrix);
+        //mat3.invert(normalMatrix, normalMatrix);
+        //mat4.toInverseMat3(model.positionMatrix, normalMatrix);
+        //mat3.transpose(normalMatrix, normalMatrix);
         gl.uniformMatrix3fv(shaderProgram.nMatrixUniform, false, normalMatrix);
     }
 
@@ -118,16 +127,16 @@
         var teapot1Mat = mat4.create(), teapot2Mat = mat4.create();
 
         mat4.identity(teapot1Mat);
-        mat4.translate(teapot1Mat, [-10, 0, -40]);
-        mat4.rotate(teapot1Mat, degToRad(23.4), [1, 0, -1]);
-        mat4.rotate(teapot1Mat, degToRad(teapotAngle), [0, 1, 0]);
+        mat4.translate(teapot1Mat, teapot1Mat, [-10, 0, -40]);
+        mat4.rotate(teapot1Mat, teapot1Mat, degToRad(23.4), [1, 0, -1]);
+        mat4.rotate(teapot1Mat, teapot1Mat, degToRad(teapotAngle), [0, 1, 0]);
         teapot1.positionMatrix = teapot1Mat;
         ourObjects.push(teapot1);
 
         mat4.identity(teapot2Mat);
-        mat4.translate(teapot2Mat, [10, 0, -40]);
-        mat4.rotate(teapot2Mat, degToRad(-23.4), [1, 0, -1]);
-        mat4.rotate(teapot2Mat, degToRad(-teapotAngle), [0, 1, 0]);
+        mat4.translate(teapot2Mat, teapot2Mat, [10, 0, -40]);
+        mat4.rotate(teapot2Mat, teapot2Mat, degToRad(-23.4), [1, 0, -1]);
+        mat4.rotate(teapot2Mat, teapot2Mat, degToRad(-teapotAngle), [0, 1, 0]);
         teapot2.positionMatrix = teapot2Mat;
         ourObjects.push(teapot2);
     }
@@ -176,10 +185,6 @@
         var texture = document.getElementById("texture").value;
         gl.uniform1i(shaderProgram.useTexturesUniform, texture != "none");
 
-        mat4.identity(camMatrix);
-        mat4.rotate(camMatrix, degToRad(-pitch), [1, 0, 0]);
-        mat4.rotate(camMatrix, degToRad(-yaw), [0, 1, 0]);
-        mat4.translate(camMatrix, [-xPos, -yPos, -zPos]);
         gl.uniformMatrix4fv(shaderProgram.camMatrix, false, camMatrix);
 
         gl.activeTexture(gl.TEXTURE0);
@@ -256,31 +261,39 @@
 
 
     var lastTime = 0;
+    var camMove = mat4.create();
 
     function animate() {
         var timeNow = new Date().getTime();
         if (lastTime != 0) {
             var elapsed = timeNow - lastTime;
+            yaw += yawRate * elapsed;
+            pitch += pitchRate * elapsed;
 
             teapotAngle += 0.05 * elapsed;
+            mat4.identity(camMove);
 
-            if (speedZ != 0) {
-                zPos += speedZ * elapsed;
+            mat4.identity(camMove);
+
+            if (pitch != 0){
+                mat4.rotate(camMove, camMove, degToRad(-pitch), [1, 0, 0]);
+                mat4.multiply(camMatrix, camMove, camMatrix);
+                pitch = 0;
+            }
+            mat4.identity(camMove);
+
+            if (yaw != 0) {
+                mat4.rotate(camMove, camMove, degToRad(-yaw), [0, 1, 0]);
+                mat4.multiply(camMatrix, camMove, camMatrix);
+                yaw = 0;
+            }
+            if (speedX != 0 || speedY != 0 || speedZ != 0) {
+                mat4.translate(camMove, camMove, [speedX * elapsed, speedY * elapsed, speedZ * elapsed]);
+                mat4.multiply(camMatrix, camMove, camMatrix);
 
             //    joggingAngle += elapsed * 0.2; // 0.6 "fiddle factor" - makes it feel more realistic :-)
             //    yPos += Math.sin(degToRad(joggingAngle)) / 40 + 0.2
             }
-
-            if (speedX != 0) {
-                xPos += speedX * elapsed;
-            }
-
-            if (speedY != 0) {
-                yPos += speedY * elapsed;
-            }
-
-            yaw += yawRate * elapsed;
-            pitch += pitchRate * elapsed;
         }
         lastTime = timeNow;
     }
@@ -305,7 +318,7 @@
         loadObjects();
         initShaders();
         initTextures();
-        //loadTeapot();
+        mat4.identity(camMatrix);
 
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
         gl.enable(gl.DEPTH_TEST);
@@ -313,7 +326,8 @@
         document.onkeydown = handleKeyDown;
         document.onkeyup = handleKeyUp;
 
-        mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, frustum);
+        mat4.perspective(frustum, 45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0);
+        gl.uniformMatrix4fv(shaderProgram.frustum, false, frustum);
 
         tick();
     }
@@ -386,10 +400,10 @@
         // Go righ or left
         if (currentlyPressedKeys[68]) {
             //  D
-            speedX = 0.003;
+            speedX = -0.003;
         } else if (currentlyPressedKeys[65]) {
             //  A
-            speedX = -0.003;
+            speedX = 0.003;
         } else {
             speedX = 0;
         }
