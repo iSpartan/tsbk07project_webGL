@@ -13,6 +13,7 @@
 <script type="text/javascript">
 
     var gl;
+	var MAX_DISTANCE = 10000;
     function initGL(canvas) {
         try {
             gl = canvas.getContext("experimental-webgl");
@@ -120,9 +121,11 @@
         mesh = ourMeshes.teapot;
         teapot1 = {name:"teapot1"};
         teapot1.meshData = mesh;
+		teapot1.radius = 10;
 
         teapot2 = {name:"teapot2"};
         teapot2.meshData = mesh;
+		teapot2.radius = 5;
 
         var teapot1Mat = mat4.create(), teapot2Mat = mat4.create();
 
@@ -202,39 +205,40 @@
         };
     }
 
-	function getDistanceToModel(modelPositionVec, cameraPosition){
-		console.log(modelPositionVec.x);
-	//	console.log(modelPositionVec.y);
-	//	console.log(modelPositionVec.z);
-		console.log(cameraPosition[12]);
-		console.log(cameraPosition[13]);
-		console.log(cameraPosition[14]);
-		console.log("-------------")
-		var dx = modelPositionVec.x - cameraPosition[12];
-		var dy = modelPositionVec.y - cameraPosition[13];
-		var dz = modelPositionVec.z - cameraPosition[14];
-		return Math.sqrt(dx*dx+dy*dy+dz*dz) //just between points
+	function getDistanceToModel(pos){
+		
+		return Math.sqrt(pos.x*pos.x+pos.y*pos.y+pos.z*pos.z) //just between points
 
 	}
-	function getClosestDistance(someModels, cameraPosition){
-		var shortestDist = 0, distance = 0;
+	function isColliding(someModels, cameraPosition){
+		var shortestDist = MAX_DISTANCE, distance = 0;
 		var modelPositionVec = {name:"modelPosVec"};
+		var indexOfClosest = 0;
+		var difference = 0;
 		for (var i = 0; i < someModels.length; i++){
-			 modelPositionVec.posVec = getModelPosistion(someModels[i].positionMatrix, cameraPosition);
-			distance = getDistanceToModel(modelPositionVec, cameraPosition); 
-            if( distance < shortestDist)
+			 modelPositionVec.posVec = getModelPosistion(someModels[i].positionMatrix);
+			distance = getDistanceToModel(modelPositionVec.posVec); 
+		   if( distance < shortestDist){
 				shortestDist = distance;
-			};
-		return shortestDist;
+				indexOfClosest = i;
+			}
+		};
+		difference = someModels[indexOfClosest].radius-shortestDist;
+		if(difference > 0 ){
+			return difference;
+		}
+		else if(difference > -0.1){ //returns negative value for when camera is pretty close to object
+			return -difference;
+		}
+		return 0; 
 	}
-	function getModelPosistion(posMatrix, camMat){
-		
-		var pos = mat4.create;
-		pos = mat4.multiply(pos, camMat, posMatrix);
+	function getModelPosistion(posMatrix){
+		var pos = mat4.create();
+		mat4.multiply(pos, camMatrix, posMatrix);
 		var posVec = {name:"posVec"};
-		posVec.x = pos[3];
-		posVec.y = pos[7];
-		posVec.z = pos[11];
+		posVec.x = pos[12];
+		posVec.y = pos[13];
+		posVec.z = pos[14];
 		return posVec;
 	}
 	
@@ -262,11 +266,13 @@
 
     var lastTime = 0;
     var camMove = mat4.create();
+	var lastStepX = 0, lastStepY = 0, lastStepZ = 0;
+	var elapsed;
 
     function animate() {
         var timeNow = new Date().getTime();
         if (lastTime != 0) {
-            var elapsed = timeNow - lastTime;
+            elapsed = timeNow - lastTime;
             yaw += yawRate * elapsed;
             pitch += pitchRate * elapsed;
 
@@ -288,6 +294,9 @@
                 yaw = 0;
             }
             if (speedX != 0 || speedY != 0 || speedZ != 0) {
+				lastStepX = speedX * elapsed;
+				lastStepY = speedY * elapsed;
+				lastStepZ = speedZ * elapsed;
                 mat4.translate(camMove, camMove, [speedX * elapsed, speedY * elapsed, speedZ * elapsed]);
                 mat4.multiply(camMatrix, camMove, camMatrix);
 
@@ -308,7 +317,7 @@
 
     function loadObjects(){
         OBJ.downloadMeshes({
-            'teapot': 'objects/floor.obj'            
+            'teapot': 'objects/teapot.obj'            
         }, webGLAddObj);
     }
 
@@ -359,9 +368,7 @@
     var zPos = 0;
 
     var speedZ = 0, speedY = 0, speedX = 0;
-
     function handleKeys() {
-
         // Look up or down
         if (currentlyPressedKeys[104]) {
             // Numpad 8
@@ -384,41 +391,74 @@
             yawRate = 0;
         }
 
-
-        // Go forward or backward
-        if (currentlyPressedKeys[87]) {
+		var changeX = false, changeY = false, changeZ = false, hasCollided = false;
+		
+		if(currentlyPressedKeys[87] || currentlyPressedKeys[83] || currentlyPressedKeys[68] || currentlyPressedKeys[65] || currentlyPressedKeys[81] || currentlyPressedKeys[69] ){
+		
+	   // Go forward or backward
+        if (currentlyPressedKeys[87] ) {
             //  W
-			if(getClosestDistance(ourObjects, camMatrix) > 10)
-            speedZ = 0.003;
+			speedZ = 0.003;
+			changeZ = true;
+			
         } else if (currentlyPressedKeys[83]) {
             // S
+			console.log("S");
             speedZ = -0.003;
+			changeZ = true;
         } else {
             speedZ = 0;
+			changeZ= false;
         }
 
         // Go righ or left
         if (currentlyPressedKeys[68]) {
             //  D
             speedX = -0.003;
+			changeX = true;
         } else if (currentlyPressedKeys[65]) {
             //  A
             speedX = 0.003;
+			changeX = true;
         } else {
             speedX = 0;
+			changeX = false;
         }
 
         // Go up or down
         if (currentlyPressedKeys[69]) {
             //  E
             speedY = 0.003;
+			changeY = true;
         } else if (currentlyPressedKeys[81]) {
             //  Q
             speedY = -0.003;
+			changeY = true;
         } else {
             speedY = 0;
+			changeY = false;
         }
+		var collisionValue = isColliding(ourObjects);
+		if( collisionValue > 0.05){
+		
+			if (changeZ ) {
+				speedZ = -collisionValue*100*speedZ;
+			}
+			if (changeY ) {
+				speedY = -collisionValue*100*speedY;
+			}
+			if (changeX ) {
+				speedX = -collisionValue*100*speedX;
+			}
+		}
 
+		}	//no keys pressed
+		else {
+		speedX = 0;
+		speedY = 0;
+		speedZ = 0;
+		}
+		prevColl = collisionValue;
     }
 
 </script>
