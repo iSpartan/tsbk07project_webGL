@@ -27,11 +27,12 @@
     }
 
     var shaderProgram;
+	var skyBoxShaders;
 
     function initShaders() {
 
         shaderProgram = utils.addShaderProg(gl, 'teapot.vertex', 'teapot.frag');
-
+		skyBoxShaders = utils.addShaderProg(gl, 'skyBox.vertex', 'skyBox.frag')
         gl.useProgram(shaderProgram);
 
         shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
@@ -56,6 +57,33 @@
         shaderProgram.pointLightingLocationUniform = gl.getUniformLocation(shaderProgram, "uPointLightingLocation");
         shaderProgram.pointLightingSpecularColorUniform = gl.getUniformLocation(shaderProgram, "uPointLightingSpecularColor");
         shaderProgram.pointLightingDiffuseColorUniform = gl.getUniformLocation(shaderProgram, "uPointLightingDiffuseColor");
+		
+		//skybox
+		gl.useProgram(skyBoxShaders);
+		skyBoxShaders.vertexPositionAttribute = gl.getAttribLocation(skyBoxShaders, "aPosition");
+        gl.enableVertexAttribArray(skyBoxShaders.vertexPositionAttribute);
+
+       // shaderProgram.vertexNormalAttribute = gl.getAttribLocation(shaderProgram, "aVertexNormal");
+        //gl.enableVertexAttribArray(shaderProgram.vertexNormalAttribute);
+
+        skyBoxShaders.textureCoordAttribute = gl.getAttribLocation(skyBoxShaders, "aTexCoord");
+        gl.enableVertexAttribArray(skyBoxShaders.textureCoordAttribute);
+
+        //shaderProgram.frustum = gl.getUniformLocation(shaderProgram, "frustum");
+        skyBoxShaders.mvMatrixUniform = gl.getUniformLocation(skyBoxShaders, "uMVMatrix");
+        //shaderProgram.nMatrixUniform = gl.getUniformLocation(shaderProgram, "uNMatrix");
+        skyBoxShaders.camMatrix = gl.getUniformLocation(skyBoxShaders, "camMatrix");
+        skyBoxShaders.samplerUniform = gl.getUniformLocation(skyBoxShaders, "uTexSky");
+		
+       // shaderProgram.materialShininessUniform = gl.getUniformLocation(shaderProgram, "uMaterialShininess");
+        //shaderProgram.showSpecularHighlightsUniform = gl.getUniformLocation(shaderProgram, "uShowSpecularHighlights");
+        //shaderProgram.useTexturesUniform = gl.getUniformLocation(shaderProgram, "uUseTextures");
+        //shaderProgram.useLightingUniform = gl.getUniformLocation(shaderProgram, "uUseLighting");
+        //shaderProgram.ambientColorUniform = gl.getUniformLocation(shaderProgram, "uAmbientColor");
+        //shaderProgram.pointLightingLocationUniform = gl.getUniformLocation(shaderProgram, "uPointLightingLocation");
+        //shaderProgram.pointLightingSpecularColorUniform = gl.getUniformLocation(shaderProgram, "uPointLightingSpecularColor");
+        //shaderProgram.pointLightingDiffuseColorUniform = gl.getUniformLocation(shaderProgram, "uPointLightingDiffuseColor");
+		gl.useProgram(shaderProgram);
     }
 
     function handleLoadedTexture(texture) {
@@ -71,6 +99,7 @@
 
     var galvanizedTexture;
     var earthTexture;
+	var skyTexture;
 
     function initTextures() {
 
@@ -87,6 +116,13 @@
             handleLoadedTexture(earthTexture)
         }
         earthTexture.image.src = "textures/earth.jpg";
+		
+		skyTexture = gl.createTexture();
+        skyTexture.image = new Image();
+        skyTexture.image.onload = function () {
+            handleLoadedTexture(skyTexture)
+        }
+        skyTexture.image.src = "textures/SkyBox512.tga";
     }
 
     var camMatrix = mat4.create();
@@ -113,11 +149,13 @@
     function webGLAddObj(meshes){
         ourMeshes = meshes;
         OBJ.initMeshBuffers(gl, ourMeshes.teapot);
+		OBJ.initMeshBuffers(gl, ourMeshes.skyBox);
         createObjects();
     }
 
+	var skyBox;
     function createObjects(){
-        var teapot1, teapot2, mesh;
+        var teapot1, teapot2, mesh, skyBoxMesh;
         mesh = ourMeshes.teapot;
         teapot1 = {name:"teapot1"};
         teapot1.meshData = mesh;
@@ -126,6 +164,14 @@
         teapot2 = {name:"teapot2"};
         teapot2.meshData = mesh;
 		teapot2.radius = 5;
+		
+		skyBoxMesh = ourMeshes.skyBox;
+		skyBox = {name:"skyBox"};
+		skyBox.meshData = skyBoxMesh;
+		var skyMat = mat4.create;
+		mat4.identity(skyMat);
+		mat4.translate(skyMat, skyMat, [10,10,10]);
+		skyBox.positionMatrix = skyMat; 
 
         var teapot1Mat = mat4.create(), teapot2Mat = mat4.create();
 
@@ -142,11 +188,14 @@
         mat4.rotate(teapot2Mat, teapot2Mat, degToRad(-teapotAngle), [0, 1, 0]);
         teapot2.positionMatrix = teapot2Mat;
         ourObjects.push(teapot2);
+		
     }
 
     var teapotAngle = 180;
 
     function drawScene() {
+		drawSkyBox();
+		gl.useProgram(shaderProgram);
         gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -205,6 +254,50 @@
         };
     }
 
+	function drawSkyBox(){
+		gl.useProgram(skyBoxShaders);
+        gl.uniform1i(skyBoxShaders.useTexturesUniform, skyTexture != "none");
+		gl.uniformMatrix4fv(skyBoxShaders.camMatrix, false, camMatrix);
+		gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, skyTexture);
+		gl.uniform1i(skyBoxShaders.samplerUniform, 0);
+		//drawmodel 
+		drawSkyBox();
+		
+		gl.bindBuffer(gl.ARRAY_BUFFER,  skyBox.meshData.vertexBuffer);
+        gl.vertexAttribPointer(skyBoxShaders.vertexPositionAttribute,  skyBox.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        if(! skyBox.meshData.textures.length){
+            gl.disableVertexAttribArray(skyBoxShaders.textureCoordAttribute);
+        } else {
+            gl.enableVertexAttribArray(skyBoxShaders.textureCoordAttribute);
+            gl.bindBuffer(gl.ARRAY_BUFFER,  skyBox.meshData.textureBuffer);
+            gl.vertexAttribPointer(skyBoxShaders.textureCoordAttribute,  skyBox.meshData.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        }
+
+        gl.bindBuffer(gl.ARRAY_BUFFER,  skyBox.meshData.normalBuffer);
+        gl.vertexAttribPointer(skyBoxShaders.vertexNormalAttribute,  skyBox.meshData.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  skyBox.meshData.indexBuffer);
+        //setMatrixUniforms(skyBox);
+		
+		console.log(skyBox.positionMatrix);
+		gl.uniformMatrix4fv(skyBoxShaders.mvMatrixUniform, false, skyBox.positionMatrix);
+		
+
+        var normalMatrix = mat3.create();
+       // mat3.fromMat4(normalMatrix, model.positionMatrix);
+        //mat3.invert(normalMatrix, normalMatrix);
+        //mat4.toInverseMat3(model.positionMatrix, normalMatrix);
+        //mat3.transpose(normalMatrix, normalMatrix);
+        //gl.uniformMatrix3fv(skyBoxShaders.nMatrixUniform, false, normalMatrix);
+		
+		//end 
+        gl.drawElements(gl.TRIANGLES,  skyBox.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+		//end drawmodel
+		
+	}
+	
 	function getDistanceToModel(pos){
 		
 		return Math.sqrt(pos.x*pos.x+pos.y*pos.y+pos.z*pos.z) //just between points
@@ -317,7 +410,8 @@
 
     function loadObjects(){
         OBJ.downloadMeshes({
-            'teapot': 'objects/teapot.obj'            
+            'teapot': 'objects/teapot.obj',  
+			'skyBox': 'objects/skybox.obj'
         }, webGLAddObj);
     }
 
@@ -403,7 +497,6 @@
 			
         } else if (currentlyPressedKeys[83]) {
             // S
-			console.log("S");
             speedZ = -0.003;
 			changeZ = true;
         } else {
