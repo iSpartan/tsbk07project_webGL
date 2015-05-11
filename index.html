@@ -11,12 +11,14 @@
 <script type="text/javascript" src="utils/loadShaderUtil.js"></script>
 <script type="text/javascript" src="utils/webgl-obj-loader.js"></script>
 <script type="text/javascript" src="utils/webgl-utils.js"></script>
-<script type="text/javascript" src="terrain.js"></script>
+<script type="text/javascript" src="utils/terrain.js"></script>
+<script type="text/javascript" src="utils/keyboardControls.js"></script>
 
 <script type="text/javascript">
 
     var gl;
 	var MAX_DISTANCE = 10000;
+    var keyboardControls;
     function initGL(canvas) {
         try {
             gl = canvas.getContext("experimental-webgl");
@@ -77,10 +79,10 @@
 
     function initShaders() {
 
-        //shaderProgram = utils.addShaderProg(gl, 'teapot.vertex', 'teapot.frag');
+        shaderProgram = utils.addShaderProg(gl, 'teapot.vertex', 'teapot.frag');
         terrainShader = utils.addShaderProg(gl, 'terrain.vertex', 'terrain.frag');
 
-        //setShaderProgramVars();
+        setShaderProgramVars();
         setTerrainShaderProgramVars();
 
     }
@@ -142,7 +144,6 @@
         var normalMatrix = mat3.create();
         mat3.fromMat4(normalMatrix, model.positionMatrix);
         mat3.invert(normalMatrix, normalMatrix);
-        //mat4.toInverseMat3(model.positionMatrix, normalMatrix);
         mat3.transpose(normalMatrix, normalMatrix);
         gl.uniformMatrix3fv(shaderProgram.nMatrixUniform, false, normalMatrix);
     }
@@ -192,64 +193,65 @@
     var teapotAngle = 180;
 
     function drawScene() {
-        //gl.useProgram(shaderProgram);
+        gl.useProgram(shaderProgram);
         gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-        //var specularHighlights = document.getElementById("specular").checked;
-        //gl.uniform1i(shaderProgram.showSpecularHighlightsUniform, specularHighlights);
+        var specularHighlights = document.getElementById("specular").checked;
+        gl.uniform1i(shaderProgram.showSpecularHighlightsUniform, specularHighlights);
 
-        //var lighting = document.getElementById("lighting").checked;
-        //gl.uniform1i(shaderProgram.useLightingUniform, lighting);
-        //if (lighting) {
-        //    gl.uniform3f(
-        //        shaderProgram.ambientColorUniform,
-        //        parseFloat(document.getElementById("ambientR").value),
-        //        parseFloat(document.getElementById("ambientG").value),
-        //        parseFloat(document.getElementById("ambientB").value)
-        //    );
+        var lighting = document.getElementById("lighting").checked;
+        gl.uniform1i(shaderProgram.useLightingUniform, lighting);
+        if (lighting) {
+           gl.uniform3f(
+               shaderProgram.ambientColorUniform,
+               parseFloat(document.getElementById("ambientR").value),
+               parseFloat(document.getElementById("ambientG").value),
+               parseFloat(document.getElementById("ambientB").value)
+           );
 
-        //    gl.uniform3f(
-        //        shaderProgram.pointLightingLocationUniform,
-        //        parseFloat(document.getElementById("lightPositionX").value),
-        //        parseFloat(document.getElementById("lightPositionY").value),
-        //        parseFloat(document.getElementById("lightPositionZ").value)
-        //    );
+           gl.uniform3f(
+               shaderProgram.pointLightingLocationUniform,
+               parseFloat(document.getElementById("lightPositionX").value),
+               parseFloat(document.getElementById("lightPositionY").value),
+               parseFloat(document.getElementById("lightPositionZ").value)
+           );
 
-        //    gl.uniform3f(
-        //        shaderProgram.pointLightingSpecularColorUniform,
-        //        parseFloat(document.getElementById("specularR").value),
-        //        parseFloat(document.getElementById("specularG").value),
-        //        parseFloat(document.getElementById("specularB").value)
-        //    );
+           gl.uniform3f(
+               shaderProgram.pointLightingSpecularColorUniform,
+               parseFloat(document.getElementById("specularR").value),
+               parseFloat(document.getElementById("specularG").value),
+               parseFloat(document.getElementById("specularB").value)
+           );
 
-        //    gl.uniform3f(
-        //        shaderProgram.pointLightingDiffuseColorUniform,
-        //        parseFloat(document.getElementById("diffuseR").value),
-        //        parseFloat(document.getElementById("diffuseG").value),
-        //        parseFloat(document.getElementById("diffuseB").value)
-        //    );
-        //}
+           gl.uniform3f(
+               shaderProgram.pointLightingDiffuseColorUniform,
+               parseFloat(document.getElementById("diffuseR").value),
+               parseFloat(document.getElementById("diffuseG").value),
+               parseFloat(document.getElementById("diffuseB").value)
+           );
+        }
 
-        //var texture = document.getElementById("texture").value;
-        //gl.uniform1i(shaderProgram.useTexturesUniform, texture != "none");
+        var texture = document.getElementById("texture").value;
+        gl.uniform1i(shaderProgram.useTexturesUniform, texture != "none");
 
 
-        //gl.activeTexture(gl.TEXTURE0);
-        //if (texture == "earth") {
-        //    gl.bindTexture(gl.TEXTURE_2D, earthTexture);
-        //} else if (texture == "galvanized") {
-        //    gl.bindTexture(gl.TEXTURE_2D, galvanizedTexture);
-        //}
-        //gl.uniform1i(shaderProgram.samplerUniform, 0);
+        gl.activeTexture(gl.TEXTURE0);
+        if (texture == "earth") {
+           gl.bindTexture(gl.TEXTURE_2D, earthTexture);
+        } else if (texture == "galvanized") {
+           gl.bindTexture(gl.TEXTURE_2D, galvanizedTexture);
+        }
+        gl.uniform1i(shaderProgram.samplerUniform, 0);
 
-        //gl.uniform1f(shaderProgram.materialShininessUniform, parseFloat(document.getElementById("shininess").value));
-
-        //gl.uniformMatrix4fv(shaderProgram.camMatrix, false, camMatrix);
-        //gl.uniformMatrix4fv(shaderProgram.frustum, false, frustum);
+        gl.uniform1f(shaderProgram.materialShininessUniform, parseFloat(document.getElementById("shininess").value));
+        var camMat = keyboardControls.getCamMatrix();
+        gl.uniformMatrix4fv(shaderProgram.camMatrix, false, camMat);
+        // gl.uniformMatrix4fv(shaderProgram.camMatrix, false, camMatrix);
+        gl.uniformMatrix4fv(shaderProgram.frustum, false, frustum);
 
         for (var i = 0; i < ourObjects.length; i++) {
-        //    drawModel(ourObjects[i]);
+           drawModel(ourObjects[i]);
         };
         if (terrain != null && terrain.isFinished) {
             drawTerrain();
@@ -262,11 +264,10 @@
     }
 
 	function getDistanceToModel(pos){
-		
 		return Math.sqrt(pos.x*pos.x+pos.y*pos.y+pos.z*pos.z) //just between points
-
 	}
-	function isColliding(someModels, cameraPosition){
+
+	function isColliding(someModels){
 		var shortestDist = MAX_DISTANCE, distance = 0;
 		var modelPositionVec = {name:"modelPosVec"};
 		var indexOfClosest = 0;
@@ -288,6 +289,7 @@
 		}
 		return 0; 
 	}
+
 	function getModelPosistion(posMatrix){
 		var pos = mat4.create();
 		mat4.multiply(pos, camMatrix, posMatrix);
@@ -323,8 +325,9 @@
 
     function drawTerrain(){
         gl.useProgram(terrainShader);
-
-        gl.uniformMatrix4fv(terrainShader.camMatrix, false, camMatrix);
+        var camMat = keyboardControls.getCamMatrix();
+        gl.uniformMatrix4fv(terrainShader.camMatrix, false, camMat);
+        // gl.uniformMatrix4fv(terrainShader.camMatrix, false, camMatrix);
         gl.uniformMatrix4fv(terrainShader.frustum, false, frustum);
         // now to render the mesh
 
@@ -343,7 +346,6 @@
         gl.drawElements(gl.TRIANGLES,  terrain.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
     }
     var once = false;
-
 
     var lastTime = 0;
     var camMove = mat4.create();
@@ -388,12 +390,13 @@
         lastTime = timeNow;
     }
 
-
     function tick() {
         requestAnimFrame(tick);
-        handleKeys();
+        keyboardControls.handleKeys(ourObjects);
+        // handleKeys();
         drawScene();
-        animate();
+        keyboardControls.animate();
+        // animate();
     }
 
     function loadObjects(){
@@ -410,6 +413,7 @@
         initShaders();
         initTextures();
         mat4.identity(camMatrix);
+        keyboardControls = new keyboardControls();
 
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
         gl.enable(gl.DEPTH_TEST);
@@ -420,19 +424,21 @@
         tick();
     }
 
-        var lastTime = 0;
+    var lastTime = 0;
     // Used to make us "jog" up and down as we move forward.
     var joggingAngle = 0;
 
     var currentlyPressedKeys = {};
 
     function handleKeyDown(event) {
-        currentlyPressedKeys[event.keyCode] = true;
+        keyboardControls.handleKeyDown(event);
+        // currentlyPressedKeys[event.keyCode] = true;
     }
 
 
     function handleKeyUp(event) {
-        currentlyPressedKeys[event.keyCode] = false;
+        keyboardControls.handleKeyUp(event);
+        // currentlyPressedKeys[event.keyCode] = false;
     }
 
 
