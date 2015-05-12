@@ -18,6 +18,7 @@ var keyboardControls = (function () {
     this.lastStepX = 0, this.lastStepY = 0, this.lastStepZ = 0;
     this.elapsed;
     this.MAX_DISTANCE = 10000;
+    this.moveSpeed = 0.03;
 
     this.currentlyPressedKeys = {};
 
@@ -32,6 +33,15 @@ var keyboardControls = (function () {
     };
 
     keyboardControls.prototype.handleKeys = function(ourObjects) {
+        // Increase or decrease moveSpeed
+        if (this.currentlyPressedKeys[90] && this.moveSpeed < 0.04 ) {
+            //  Z
+            this.moveSpeed += 0.001;
+            
+        } else if (this.currentlyPressedKeys[88] && this.moveSpeed > 0.002) {
+            // X
+            this.moveSpeed -= 0.001;
+        }
         // Look up or down
         if (this.currentlyPressedKeys[104]) {
             // Numpad 8
@@ -63,12 +73,12 @@ var keyboardControls = (function () {
        // Go forward or backward
         if (this.currentlyPressedKeys[87] ) {
             //  W
-            this.speedZ = 0.003;
+            this.speedZ = this.moveSpeed;
             changeZ = true;
             
         } else if (this.currentlyPressedKeys[83]) {
             // S
-            this.speedZ = -0.003;
+            this.speedZ = -this.moveSpeed;
             changeZ = true;
         } else {
             this.speedZ = 0;
@@ -78,11 +88,11 @@ var keyboardControls = (function () {
         // Go righ or left
         if (this.currentlyPressedKeys[68]) {
             //  D
-            this.speedX = -0.003;
+            this.speedX = -this.moveSpeed;
             changeX = true;
         } else if (this.currentlyPressedKeys[65]) {
             //  A
-            this.speedX = 0.003;
+            this.speedX = this.moveSpeed;
             changeX = true;
         } else {
             this.speedX = 0;
@@ -92,11 +102,11 @@ var keyboardControls = (function () {
         // Go up or down
         if (this.currentlyPressedKeys[69]) {
             //  E
-            this.speedY = 0.003;
+            this.speedY = this.moveSpeed;
             changeY = true;
         } else if (this.currentlyPressedKeys[81]) {
             //  Q
-            this.speedY = -0.003;
+            this.speedY = -this.moveSpeed;
             changeY = true;
         } else {
             this.speedY = 0;
@@ -105,18 +115,14 @@ var keyboardControls = (function () {
 
         var collisionValue = isColliding(ourObjects, this.MAX_DISTANCE, this.camMatrix);
         if( collisionValue > 0.05){
-            console.log("I AZ COLLIDING")
             if (changeZ ) {
                 this.speedZ = -collisionValue*100*this.speedZ;
-            console.log("I AZ Z")
             }
             if (changeY ) {
                 this.speedY = -collisionValue*100*this.speedY;
-            console.log("I AZ Y")
             }
             if (changeX ) {
                 this.speedX = -collisionValue*100*this.speedX;
-            console.log("I AZ X")
             }
         }
 
@@ -128,7 +134,6 @@ var keyboardControls = (function () {
     };
 
     function isColliding(someModels, MAX_DISTANCE, camMatrix){
-        console.log("checks collisions")
         var shortestDist = MAX_DISTANCE, distance = 0;
         var modelPositionVec = {name:"modelPosVec"};
         var indexOfClosest = 0;
