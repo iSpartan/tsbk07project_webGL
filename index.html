@@ -4,16 +4,20 @@
 <title>Learning WebGL &mdash; lesson 1</title>
 <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
 
+  <link rel="stylesheet" href="css/app.css"/>
+
 <script type="text/javascript" src="utils/jquery-1.11.2.min.js"></script>
 <script type="text/javascript" src="utils/gl-matrix.js"></script>
 <script type="text/javascript" src="utils/loadShaderUtil.js"></script>
 <script type="text/javascript" src="utils/webgl-obj-loader.js"></script>
 <script type="text/javascript" src="utils/webgl-utils.js"></script>
+<script type="text/javascript" src="utils/terrain.js"></script>
+<script type="text/javascript" src="utils/keyboardControls.js"></script>
 
 <script type="text/javascript">
 
     var gl;
-	var MAX_DISTANCE = 10000;
+    var keyboardControls;
     function initGL(canvas) {
         try {
             gl = canvas.getContext("experimental-webgl");
@@ -25,14 +29,19 @@
             alert("Could not initialise WebGL, sorry :-(");
         }
     }
+        function handleKeyDown(event) {
+        keyboardControls.handleKeyDown(event);
+    }
 
+    function handleKeyUp(event) {
+        keyboardControls.handleKeyUp(event);
+    }
+	
     var shaderProgram;
 	var skyBoxShaders;
+    var terrainShader;
 
-    function initShaders() {
-
-        shaderProgram = utils.addShaderProg(gl, 'teapot.vertex', 'teapot.frag');
-		skyBoxShaders = utils.addShaderProg(gl, 'skyBox.vertex', 'skyBox.frag')
+    function setShaderProgramVars() {
         gl.useProgram(shaderProgram);
 
         shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
@@ -45,9 +54,9 @@
         gl.enableVertexAttribArray(shaderProgram.textureCoordAttribute);
 
         shaderProgram.frustum = gl.getUniformLocation(shaderProgram, "frustum");
+        shaderProgram.camMatrix = gl.getUniformLocation(shaderProgram, "camMatrix");
         shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
         shaderProgram.nMatrixUniform = gl.getUniformLocation(shaderProgram, "uNMatrix");
-        shaderProgram.camMatrix = gl.getUniformLocation(shaderProgram, "camMatrix");
         shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
         shaderProgram.materialShininessUniform = gl.getUniformLocation(shaderProgram, "uMaterialShininess");
         shaderProgram.showSpecularHighlightsUniform = gl.getUniformLocation(shaderProgram, "uShowSpecularHighlights");
@@ -75,15 +84,34 @@
         skyBoxShaders.camMatrix = gl.getUniformLocation(skyBoxShaders, "camMatrix");
         skyBoxShaders.samplerUniform = gl.getUniformLocation(skyBoxShaders, "uTexSky");
 		
-       // shaderProgram.materialShininessUniform = gl.getUniformLocation(shaderProgram, "uMaterialShininess");
-        //shaderProgram.showSpecularHighlightsUniform = gl.getUniformLocation(shaderProgram, "uShowSpecularHighlights");
-        //shaderProgram.useTexturesUniform = gl.getUniformLocation(shaderProgram, "uUseTextures");
-        //shaderProgram.useLightingUniform = gl.getUniformLocation(shaderProgram, "uUseLighting");
-        //shaderProgram.ambientColorUniform = gl.getUniformLocation(shaderProgram, "uAmbientColor");
-        //shaderProgram.pointLightingLocationUniform = gl.getUniformLocation(shaderProgram, "uPointLightingLocation");
-        //shaderProgram.pointLightingSpecularColorUniform = gl.getUniformLocation(shaderProgram, "uPointLightingSpecularColor");
-        //shaderProgram.pointLightingDiffuseColorUniform = gl.getUniformLocation(shaderProgram, "uPointLightingDiffuseColor");
 		gl.useProgram(shaderProgram);
+    }
+
+    function setTerrainShaderProgramVars() {
+        gl.useProgram(terrainShader);
+
+        terrainShader.vertexPositionAttribute = gl.getAttribLocation(terrainShader, "aVertexPosition");
+        gl.enableVertexAttribArray(terrainShader.vertexPositionAttribute);
+
+        //terrainShader.vertexNormalAttribute = gl.getAttribLocation(terrainShader, "aVertexNormal");
+        //gl.enableVertexAttribArray(terrainShader.vertexNormalAttribute);
+
+        terrainShader.vertexColorAttribute = gl.getAttribLocation(terrainShader, "aColorAttrib");
+        gl.enableVertexAttribArray(terrainShader.vertexColorAttribute);
+
+        terrainShader.frustum = gl.getUniformLocation(terrainShader, "frustum");
+        terrainShader.camMatrix = gl.getUniformLocation(terrainShader, "camMatrix");
+    }
+
+    function initShaders() {
+
+        shaderProgram = utils.addShaderProg(gl, 'teapot.vertex', 'teapot.frag');
+        terrainShader = utils.addShaderProg(gl, 'terrain.vertex', 'terrain.frag');
+		skyBoxShaders = utils.addShaderProg(gl, 'skyBox.vertex', 'skyBox.frag')
+
+        setShaderProgramVars();
+        setTerrainShaderProgramVars();
+
     }
 
     function handleLoadedTexture(texture) {
@@ -97,9 +125,19 @@
         gl.bindTexture(gl.TEXTURE_2D, null);
     }
 
+    function handleLoadedHeightMap(texture) {
+        gl.useProgram(terrainShader);
+        terrain = new TerrainBlock(terrainHeightMap, 256, 256);
+        terrain.isFinished = false;
+        terrain.buildVertices();
+        terrain.buildIndices();
+        terrain.buildBuffers(gl);
+    }
+
     var galvanizedTexture;
     var earthTexture;
 	var skyTexture;
+	var terrainHeightMap;
 
     function initTextures() {
 
@@ -124,6 +162,13 @@
         }
         skyTexture.image.src = "textures/earth.jpg";
 		//skyTexture.image.onLoad.listen((e){console.log("image is loaded");});
+
+        terrainHeightMap = new Image();
+        terrainHeightMap.onload = function () {
+            handleLoadedHeightMap(terrainHeightMap)
+        }
+        terrainHeightMap.src = "textures/fft-terrain.jpg";
+        // terrainHeightMap.src = "textures/44-terrain.jpg";
     }
 
     var camMatrix = mat4.create();
@@ -134,9 +179,8 @@
 
         var normalMatrix = mat3.create();
         mat3.fromMat4(normalMatrix, model.positionMatrix);
-        //mat3.invert(normalMatrix, normalMatrix);
-        //mat4.toInverseMat3(model.positionMatrix, normalMatrix);
-        //mat3.transpose(normalMatrix, normalMatrix);
+        mat3.invert(normalMatrix, normalMatrix);
+        mat3.transpose(normalMatrix, normalMatrix);
         gl.uniformMatrix3fv(shaderProgram.nMatrixUniform, false, normalMatrix);
     }
 
@@ -147,17 +191,19 @@
     var ourMeshes = {};
     var ourObjects = [];
 	var ourBox = [];
+    var terrain = {};
 
     function webGLAddObj(meshes){
         ourMeshes = meshes;
         OBJ.initMeshBuffers(gl, ourMeshes.teapot);
 		OBJ.initMeshBuffers(gl, ourMeshes.skyBox);
+        OBJ.initMeshBuffers(gl, ourMeshes.eHouse);
         createObjects();
     }
 
 	var skyBox;
     function createObjects(){
-        var teapot1, teapot2, mesh, skyBoxMesh;
+        var teapot1, teapot2, mesh, skyBoxMesh, eHouse;
         mesh = ourMeshes.teapot;
 		
         teapot1 = {name:"teapot1"};
@@ -176,12 +222,15 @@
 		
 		var skyMat = mat4.create();
 		mat4.identity(skyMat);
-		mat4.translate(skyMat, skyMat, [10,10,10]);
-		mat4.rotate(skyMat, skyMat, degToRad(23.4), [1, 0, -1]);
 		skyBox.positionMatrix = skyMat; 
 		ourBox.push(skyBox);
+		
+		teapot2.radius = 5;
+        eHouse = {name: "eHouse"};
+        eHouse.meshData = ourMeshes.eHouse;
+        eHouse.radius = 1;
 
-        var teapot1Mat = mat4.create(), teapot2Mat = mat4.create();
+        var teapot1Mat = mat4.create(), teapot2Mat = mat4.create(), eHouseMat = mat4.create();
 
         mat4.identity(teapot1Mat);
         mat4.translate(teapot1Mat, teapot1Mat, [-10, 0, -40]);
@@ -197,72 +246,88 @@
         teapot2.positionMatrix = teapot2Mat;
         ourObjects.push(teapot2);
 		
+        mat4.identity(eHouseMat);
+        mat4.translate(eHouseMat, eHouseMat, [-10, 20, -40]);
+        // mat4.rotate(eHouseMat, eHouseMat, degToRad(23.4), [1, 0, -1]);
+        // mat4.rotate(eHouseMat, eHouseMat, degToRad(teapotAngle), [0, 1, 0]);
+        eHouse.positionMatrix = eHouseMat;
+        ourObjects.push(eHouse);
     }
 
     var teapotAngle = 180;
 
     function drawScene() {
-		gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 		if(skyBox != null){
 		drawSkyBox();
 		}
 		gl.useProgram(shaderProgram);
         
-
         var specularHighlights = document.getElementById("specular").checked;
         gl.uniform1i(shaderProgram.showSpecularHighlightsUniform, specularHighlights);
 
         var lighting = document.getElementById("lighting").checked;
         gl.uniform1i(shaderProgram.useLightingUniform, lighting);
         if (lighting) {
-            gl.uniform3f(
-                shaderProgram.ambientColorUniform,
-                parseFloat(document.getElementById("ambientR").value),
-                parseFloat(document.getElementById("ambientG").value),
-                parseFloat(document.getElementById("ambientB").value)
-            );
+           gl.uniform3f(
+               shaderProgram.ambientColorUniform,
+               parseFloat(document.getElementById("ambientR").value),
+               parseFloat(document.getElementById("ambientG").value),
+               parseFloat(document.getElementById("ambientB").value)
+           );
 
-            gl.uniform3f(
-                shaderProgram.pointLightingLocationUniform,
-                parseFloat(document.getElementById("lightPositionX").value),
-                parseFloat(document.getElementById("lightPositionY").value),
-                parseFloat(document.getElementById("lightPositionZ").value)
-            );
+           gl.uniform3f(
+               shaderProgram.pointLightingLocationUniform,
+               parseFloat(document.getElementById("lightPositionX").value),
+               parseFloat(document.getElementById("lightPositionY").value),
+               parseFloat(document.getElementById("lightPositionZ").value)
+           );
 
-            gl.uniform3f(
-                shaderProgram.pointLightingSpecularColorUniform,
-                parseFloat(document.getElementById("specularR").value),
-                parseFloat(document.getElementById("specularG").value),
-                parseFloat(document.getElementById("specularB").value)
-            );
+           gl.uniform3f(
+               shaderProgram.pointLightingSpecularColorUniform,
+               parseFloat(document.getElementById("specularR").value),
+               parseFloat(document.getElementById("specularG").value),
+               parseFloat(document.getElementById("specularB").value)
+           );
 
-            gl.uniform3f(
-                shaderProgram.pointLightingDiffuseColorUniform,
-                parseFloat(document.getElementById("diffuseR").value),
-                parseFloat(document.getElementById("diffuseG").value),
-                parseFloat(document.getElementById("diffuseB").value)
-            );
+           gl.uniform3f(
+               shaderProgram.pointLightingDiffuseColorUniform,
+               parseFloat(document.getElementById("diffuseR").value),
+               parseFloat(document.getElementById("diffuseG").value),
+               parseFloat(document.getElementById("diffuseB").value)
+           );
         }
 
         var texture = document.getElementById("texture").value;
         gl.uniform1i(shaderProgram.useTexturesUniform, texture != "none");
 
-        gl.uniformMatrix4fv(shaderProgram.camMatrix, false, camMatrix);
 
         gl.activeTexture(gl.TEXTURE0);
         if (texture == "earth") {
-            gl.bindTexture(gl.TEXTURE_2D, earthTexture);
+           gl.bindTexture(gl.TEXTURE_2D, earthTexture);
         } else if (texture == "galvanized") {
-            gl.bindTexture(gl.TEXTURE_2D, galvanizedTexture);
+           gl.bindTexture(gl.TEXTURE_2D, galvanizedTexture);
         }
         gl.uniform1i(shaderProgram.samplerUniform, 0);
 
         gl.uniform1f(shaderProgram.materialShininessUniform, parseFloat(document.getElementById("shininess").value));
+        var camMat = keyboardControls.getCamMatrix();
+        gl.uniformMatrix4fv(shaderProgram.camMatrix, false, camMat);
+        // gl.uniformMatrix4fv(shaderProgram.camMatrix, false, camMatrix);
+        gl.uniformMatrix4fv(shaderProgram.frustum, false, frustum);
 
         for (var i = 0; i < ourObjects.length; i++) {
-            drawModel(ourObjects[i]);
+           drawModel(ourObjects[i]);
         };
+        if (terrain != null && terrain.isFinished) {
+            drawTerrain();
+        }
+
+        if(!once && terrain != null && terrain.isFinished){
+        console.log(terrain);
+        once = true;
+        }
     }
 
 	function drawSkyBox(){
@@ -274,7 +339,6 @@
 		temp[7]=0;
 		temp[11]=0;
 		temp[15]=0;
-		
 		
 		gl.uniformMatrix4fv(skyBoxShaders.camMatrix, false, temp);
 		gl.activeTexture(gl.TEXTURE0);
@@ -308,45 +372,9 @@
 		gl.enable(gl.DEPTH_TEST);
 	}
 	
-	function getDistanceToModel(pos){
-		
-		return Math.sqrt(pos.x*pos.x+pos.y*pos.y+pos.z*pos.z) //just between points
-
-	}
-	function isColliding(someModels, cameraPosition){
-		var shortestDist = MAX_DISTANCE, distance = 0;
-		var modelPositionVec = {name:"modelPosVec"};
-		var indexOfClosest = 0;
-		var difference = 0;
-		for (var i = 0; i < someModels.length; i++){
-			 modelPositionVec.posVec = getModelPosistion(someModels[i].positionMatrix);
-			distance = getDistanceToModel(modelPositionVec.posVec); 
-		   if( distance < shortestDist){
-				shortestDist = distance;
-				indexOfClosest = i;
-			}
-		};
-		difference = someModels[indexOfClosest].radius-shortestDist;
-		//if(difference > 0 ){
-			return difference;
-		//}
-		//else if(difference > -0.1){ //returns negative value for when camera is pretty close to object
-			//return -difference;
-		//}
-		return 0; 
-	}
-	function getModelPosistion(posMatrix){
-		var pos = mat4.create();
-		mat4.multiply(pos, camMatrix, posMatrix);
-		var posVec = {name:"posVec"};
-		posVec.x = pos[12];
-		posVec.y = pos[13];
-		posVec.z = pos[14];
-		return posVec;
-	}
-	
     function drawModel(model) {
         // now to render the mesh
+        gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
         gl.bindBuffer(gl.ARRAY_BUFFER,  model.meshData.vertexBuffer);
         gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute,  model.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
@@ -358,6 +386,7 @@
             gl.vertexAttribPointer(shaderProgram.textureCoordAttribute,  model.meshData.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
         }
 
+        gl.enableVertexAttribArray(shaderProgram.vertexNormalAttribute);
         gl.bindBuffer(gl.ARRAY_BUFFER,  model.meshData.normalBuffer);
         gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute,  model.meshData.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
@@ -366,72 +395,55 @@
         gl.drawElements(gl.TRIANGLES,  model.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
     }
 
+    function drawTerrain(){
+        gl.useProgram(terrainShader);
+        var camMat = keyboardControls.getCamMatrix();
+        gl.uniformMatrix4fv(terrainShader.camMatrix, false, camMat);
+        // gl.uniformMatrix4fv(terrainShader.camMatrix, false, camMatrix);
+        gl.uniformMatrix4fv(terrainShader.frustum, false, frustum);
+        // now to render the mesh
 
-    var lastTime = 0;
-    var camMove = mat4.create();
-	var lastStepX = 0, lastStepY = 0, lastStepZ = 0;
-	var elapsed;
+        gl.bindBuffer(gl.ARRAY_BUFFER,  terrain.vertexBuffer);
+        gl.vertexAttribPointer(terrainShader.vertexPositionAttribute,  terrain.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-    function animate() {
-        var timeNow = new Date().getTime();
-        if (lastTime != 0) {
-            elapsed = timeNow - lastTime;
-            yaw += yawRate * elapsed;
-            pitch += pitchRate * elapsed;
+        gl.bindBuffer(gl.ARRAY_BUFFER,  terrain.colorBuffer);
+        gl.vertexAttribPointer(terrainShader.vertexColorAttribute,  terrain.colorBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-            teapotAngle += 0.05 * elapsed;
-            mat4.identity(camMove);
+        //gl.bindBuffer(gl.ARRAY_BUFFER,  terrain.normalBuffer);
+        //gl.vertexAttribPointer(terrainShader.vertexNormalAttribute,  terrain.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-            mat4.identity(camMove);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  terrain.indexBuffer);
+        //setMatrixUniforms(terrain);
 
-            if (pitch != 0){
-                mat4.rotate(camMove, camMove, degToRad(-pitch), [1, 0, 0]);
-                mat4.multiply(camMatrix, camMove, camMatrix);
-                pitch = 0;
-            }
-            mat4.identity(camMove);
-
-            if (yaw != 0) {
-                mat4.rotate(camMove, camMove, degToRad(-yaw), [0, 1, 0]);
-                mat4.multiply(camMatrix, camMove, camMatrix);
-                yaw = 0;
-            }
-            if (speedX != 0 || speedY != 0 || speedZ != 0) {
-				lastStepX = speedX * elapsed;
-				lastStepY = speedY * elapsed;
-				lastStepZ = speedZ * elapsed;
-                mat4.translate(camMove, camMove, [speedX * elapsed, speedY * elapsed, speedZ * elapsed]);
-                mat4.multiply(camMatrix, camMove, camMatrix);
-
-            //    joggingAngle += elapsed * 0.2; // 0.6 "fiddle factor" - makes it feel more realistic :-)
-            //    yPos += Math.sin(degToRad(joggingAngle)) / 40 + 0.2
-            }
-        }
-        lastTime = timeNow;
+        gl.drawElements(gl.TRIANGLES,  terrain.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
     }
-
+    var once = false;
 
     function tick() {
         requestAnimFrame(tick);
-        handleKeys();
+        keyboardControls.handleKeys(ourObjects);
         drawScene();
-        animate();
+        keyboardControls.animate();
     }
 
     function loadObjects(){
         OBJ.downloadMeshes({
               
-			'skyBox': 'objects/skybox.obj','teapot': 'objects/teapot.obj'
+			'skyBox': 'objects/skybox.obj',
+            'teapot': 'objects/teapot.obj',
+            'eHouse': 'objects/emilHouse.obj'
         }, webGLAddObj);
     }
 
     function webGLStart() {
         var canvas = document.getElementById("lesson14-canvas");
         initGL(canvas);
+        mat4.perspective(frustum, 45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0);
         loadObjects();
         initShaders();
         initTextures();
         mat4.identity(camMatrix);
+        keyboardControls = new keyboardControls();
 
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
         gl.enable(gl.DEPTH_TEST);
@@ -439,131 +451,7 @@
         document.onkeydown = handleKeyDown;
         document.onkeyup = handleKeyUp;
 
-        mat4.perspective(frustum, 45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0);
-        gl.uniformMatrix4fv(shaderProgram.frustum, false, frustum);
-
         tick();
-    }
-
-        var lastTime = 0;
-    // Used to make us "jog" up and down as we move forward.
-    var joggingAngle = 0;
-
-    var currentlyPressedKeys = {};
-
-    function handleKeyDown(event) {
-        currentlyPressedKeys[event.keyCode] = true;
-    }
-
-
-    function handleKeyUp(event) {
-        currentlyPressedKeys[event.keyCode] = false;
-    }
-
-
-    var pitch = 0;
-    var pitchRate = 0;
-
-    var yaw = 0;
-    var yawRate = 0;
-
-    var xPos = 0;
-    var yPos = 0.4;
-    var zPos = 0;
-
-    var speedZ = 0, speedY = 0, speedX = 0;
-    function handleKeys() {
-        // Look up or down
-        if (currentlyPressedKeys[104]) {
-            // Numpad 8
-            pitchRate = 0.1;
-        } else if (currentlyPressedKeys[101]) {
-            // Numpad 5
-            pitchRate = -0.1;
-        } else {
-            pitchRate = 0;
-        }
-
-        // look righ or left
-        if (currentlyPressedKeys[100]) {
-            // Numpad 4
-            yawRate = 0.1;
-        } else if (currentlyPressedKeys[102]) {
-            // Numpad 6
-            yawRate = -0.1;
-        } else {
-            yawRate = 0;
-        }
-
-		var changeX = false, changeY = false, changeZ = false, hasCollided = false;
-		
-		if(currentlyPressedKeys[87] || currentlyPressedKeys[83] || currentlyPressedKeys[68] || currentlyPressedKeys[65] || currentlyPressedKeys[81] || currentlyPressedKeys[69] ){
-		
-	   // Go forward or backward
-        if (currentlyPressedKeys[87] ) {
-            //  W
-			speedZ = 0.003;
-			changeZ = true;
-			
-        } else if (currentlyPressedKeys[83]) {
-            // S
-            speedZ = -0.003;
-			changeZ = true;
-        } else {
-            speedZ = 0;
-			changeZ= false;
-        }
-
-        // Go righ or left
-        if (currentlyPressedKeys[68]) {
-            //  D
-            speedX = -0.003;
-			changeX = true;
-        } else if (currentlyPressedKeys[65]) {
-            //  A
-            speedX = 0.003;
-			changeX = true;
-        } else {
-            speedX = 0;
-			changeX = false;
-        }
-
-        // Go up or down
-        if (currentlyPressedKeys[69]) {
-            //  E
-            speedY = 0.003;
-			changeY = true;
-        } else if (currentlyPressedKeys[81]) {
-            //  Q
-            speedY = -0.003;
-			changeY = true;
-        } else {
-            speedY = 0;
-			changeY = false;
-        }
-		
-		var collisionValue = isColliding(ourBox);
-
-		if( collisionValue > 0.05){
-		
-			if (changeZ ) {
-				speedZ = -collisionValue*100*speedZ;
-			}
-			if (changeY ) {
-				speedY = -collisionValue*100*speedY;
-			}
-			if (changeX ) {
-				speedX = -collisionValue*100*speedX;
-			}
-		}
-
-		}	//no keys pressed
-		else {
-		speedX = 0;
-		speedY = 0;
-		speedZ = 0;
-		}
-		prevColl = collisionValue;
     }
 
 </script>
@@ -571,7 +459,7 @@
 </head>
 
 <body onload="webGLStart();">
-    <canvas id="lesson14-canvas" style="border: none;" width="500" height="500"></canvas>
+    <canvas id="lesson14-canvas" style="border: none;" width="1000" height="500"></canvas>
 
     <br/>
 
