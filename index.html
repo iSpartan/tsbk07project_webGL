@@ -334,7 +334,7 @@
 		gl.disable(gl.DEPTH_TEST);
 		gl.useProgram(skyBoxShaders);
         gl.uniform1i(skyBoxShaders.useTexturesUniform, skyTexture != "none");
-		var temp = mat4.clone(camMatrix);
+		var temp = mat4.clone(keyboardControls.getCamMatrix);
 		temp[3]=0;
 		temp[7]=0;
 		temp[11]=0;
@@ -363,6 +363,11 @@
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  skyBox.meshData.indexBuffer);
         
 		gl.uniformMatrix4fv(skyBoxShaders.mvMatrixUniform, false, skyBox.positionMatrix);
+		
+		console.log(skyBox.positionMatrix);
+		
+		console.log(temp);
+		
 		
 		var normalMatrix = mat3.create();
         mat3.fromMat4(normalMatrix, skyBox.positionMatrix);
