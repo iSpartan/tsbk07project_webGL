@@ -37,39 +37,40 @@
         keyboardControls.handleKeyUp(event);
     }
 	
-    var shaderProgram;
+    var teapotShader;
 	var skyBoxShaders;
     var terrainShader;
 
-    function setShaderProgramVars() {
-        gl.useProgram(shaderProgram);
+    function setTeapotShaderProgramVars() {
+        gl.useProgram(teapotShader);
 
-        shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
-        gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+        teapotShader.vertexPositionAttribute = gl.getAttribLocation(teapotShader, "aVertexPosition");
+        gl.enableVertexAttribArray(teapotShader.vertexPositionAttribute);
 
-        shaderProgram.vertexNormalAttribute = gl.getAttribLocation(shaderProgram, "aVertexNormal");
-        gl.enableVertexAttribArray(shaderProgram.vertexNormalAttribute);
+        teapotShader.vertexNormalAttribute = gl.getAttribLocation(teapotShader, "aVertexNormal");
+        gl.enableVertexAttribArray(teapotShader.vertexNormalAttribute);
 
-        shaderProgram.textureCoordAttribute = gl.getAttribLocation(shaderProgram, "aTextureCoord");
-        gl.enableVertexAttribArray(shaderProgram.textureCoordAttribute);
+        teapotShader.textureCoordAttribute = gl.getAttribLocation(teapotShader, "aTextureCoord");
+        gl.enableVertexAttribArray(teapotShader.textureCoordAttribute);
 
-        shaderProgram.frustum = gl.getUniformLocation(shaderProgram, "frustum");
-        shaderProgram.camMatrix = gl.getUniformLocation(shaderProgram, "camMatrix");
-        shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
-        shaderProgram.nMatrixUniform = gl.getUniformLocation(shaderProgram, "uNMatrix");
-        shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
-        shaderProgram.materialShininessUniform = gl.getUniformLocation(shaderProgram, "uMaterialShininess");
-        shaderProgram.showSpecularHighlightsUniform = gl.getUniformLocation(shaderProgram, "uShowSpecularHighlights");
-        shaderProgram.useTexturesUniform = gl.getUniformLocation(shaderProgram, "uUseTextures");
-        shaderProgram.useLightingUniform = gl.getUniformLocation(shaderProgram, "uUseLighting");
-        shaderProgram.ambientColorUniform = gl.getUniformLocation(shaderProgram, "uAmbientColor");
-        shaderProgram.pointLightingLocationUniform = gl.getUniformLocation(shaderProgram, "uPointLightingLocation");
-        shaderProgram.pointLightingSpecularColorUniform = gl.getUniformLocation(shaderProgram, "uPointLightingSpecularColor");
-        shaderProgram.pointLightingDiffuseColorUniform = gl.getUniformLocation(shaderProgram, "uPointLightingDiffuseColor");
-		
-		//skybox
-		gl.useProgram(skyBoxShaders);
-		skyBoxShaders.vertexPositionAttribute = gl.getAttribLocation(skyBoxShaders, "aPosition");
+        teapotShader.frustum = gl.getUniformLocation(teapotShader, "frustum");
+        teapotShader.camMatrix = gl.getUniformLocation(teapotShader, "camMatrix");
+        teapotShader.mvMatrixUniform = gl.getUniformLocation(teapotShader, "uMVMatrix");
+        teapotShader.nMatrixUniform = gl.getUniformLocation(teapotShader, "uNMatrix");
+        teapotShader.samplerUniform = gl.getUniformLocation(teapotShader, "uSampler");
+        teapotShader.materialShininessUniform = gl.getUniformLocation(teapotShader, "uMaterialShininess");
+        teapotShader.showSpecularHighlightsUniform = gl.getUniformLocation(teapotShader, "uShowSpecularHighlights");
+        teapotShader.useTexturesUniform = gl.getUniformLocation(teapotShader, "uUseTextures");
+        teapotShader.useLightingUniform = gl.getUniformLocation(teapotShader, "uUseLighting");
+        teapotShader.ambientColorUniform = gl.getUniformLocation(teapotShader, "uAmbientColor");
+        teapotShader.pointLightingLocationUniform = gl.getUniformLocation(teapotShader, "uPointLightingLocation");
+        teapotShader.pointLightingSpecularColorUniform = gl.getUniformLocation(teapotShader, "uPointLightingSpecularColor");
+        teapotShader.pointLightingDiffuseColorUniform = gl.getUniformLocation(teapotShader, "uPointLightingDiffuseColor");
+    }
+
+    function setskyBoxShaderProgramVars(){
+        gl.useProgram(skyBoxShaders);
+        skyBoxShaders.vertexPositionAttribute = gl.getAttribLocation(skyBoxShaders, "aPosition");
         gl.enableVertexAttribArray(skyBoxShaders.vertexPositionAttribute);
 
         skyBoxShaders.vertexNormalAttribute = gl.getAttribLocation(skyBoxShaders, "aVertexNormal");
@@ -78,13 +79,10 @@
         skyBoxShaders.textureCoordAttribute = gl.getAttribLocation(skyBoxShaders, "aTexCoord");
         gl.enableVertexAttribArray(skyBoxShaders.textureCoordAttribute);
 
-        //shaderProgram.frustum = gl.getUniformLocation(shaderProgram, "frustum");
         skyBoxShaders.mvMatrixUniform = gl.getUniformLocation(skyBoxShaders, "uMVMatrix");
         skyBoxShaders.nMatrixUniform = gl.getUniformLocation(skyBoxShaders, "uNMatrix");
         skyBoxShaders.camMatrix = gl.getUniformLocation(skyBoxShaders, "camMatrix");
         skyBoxShaders.samplerUniform = gl.getUniformLocation(skyBoxShaders, "uTexSky");
-		
-		gl.useProgram(shaderProgram);
     }
 
     function setTerrainShaderProgramVars() {
@@ -105,11 +103,12 @@
 
     function initShaders() {
 
-        shaderProgram = utils.addShaderProg(gl, 'teapot.vertex', 'teapot.frag');
+        teapotShader = utils.addShaderProg(gl, 'teapot.vertex', 'teapot.frag');
         terrainShader = utils.addShaderProg(gl, 'terrain.vertex', 'terrain.frag');
 		skyBoxShaders = utils.addShaderProg(gl, 'skyBox.vertex', 'skyBox.frag')
 
-        setShaderProgramVars();
+        setTeapotShaderProgramVars();
+        setskyBoxShaderProgramVars()
         setTerrainShaderProgramVars();
 
     }
@@ -175,13 +174,13 @@
     var frustum = mat4.create();
 
     function setMatrixUniforms(model) {
-        gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, model.positionMatrix);
+        gl.uniformMatrix4fv(teapotShader.mvMatrixUniform, false, model.positionMatrix);
 
         var normalMatrix = mat3.create();
         mat3.fromMat4(normalMatrix, model.positionMatrix);
         mat3.invert(normalMatrix, normalMatrix);
         mat3.transpose(normalMatrix, normalMatrix);
-        gl.uniformMatrix3fv(shaderProgram.nMatrixUniform, false, normalMatrix);
+        gl.uniformMatrix3fv(teapotShader.nMatrixUniform, false, normalMatrix);
     }
 
     function degToRad(degrees) {
@@ -262,37 +261,37 @@
 		if(skyBox != null){
 		drawSkyBox();
 		}
-		gl.useProgram(shaderProgram);
+		gl.useProgram(teapotShader);
         
         var specularHighlights = document.getElementById("specular").checked;
-        gl.uniform1i(shaderProgram.showSpecularHighlightsUniform, specularHighlights);
+        gl.uniform1i(teapotShader.showSpecularHighlightsUniform, specularHighlights);
 
         var lighting = document.getElementById("lighting").checked;
-        gl.uniform1i(shaderProgram.useLightingUniform, lighting);
+        gl.uniform1i(teapotShader.useLightingUniform, lighting);
         if (lighting) {
            gl.uniform3f(
-               shaderProgram.ambientColorUniform,
+               teapotShader.ambientColorUniform,
                parseFloat(document.getElementById("ambientR").value),
                parseFloat(document.getElementById("ambientG").value),
                parseFloat(document.getElementById("ambientB").value)
            );
 
            gl.uniform3f(
-               shaderProgram.pointLightingLocationUniform,
+               teapotShader.pointLightingLocationUniform,
                parseFloat(document.getElementById("lightPositionX").value),
                parseFloat(document.getElementById("lightPositionY").value),
                parseFloat(document.getElementById("lightPositionZ").value)
            );
 
            gl.uniform3f(
-               shaderProgram.pointLightingSpecularColorUniform,
+               teapotShader.pointLightingSpecularColorUniform,
                parseFloat(document.getElementById("specularR").value),
                parseFloat(document.getElementById("specularG").value),
                parseFloat(document.getElementById("specularB").value)
            );
 
            gl.uniform3f(
-               shaderProgram.pointLightingDiffuseColorUniform,
+               teapotShader.pointLightingDiffuseColorUniform,
                parseFloat(document.getElementById("diffuseR").value),
                parseFloat(document.getElementById("diffuseG").value),
                parseFloat(document.getElementById("diffuseB").value)
@@ -300,7 +299,7 @@
         }
 
         var texture = document.getElementById("texture").value;
-        gl.uniform1i(shaderProgram.useTexturesUniform, texture != "none");
+        gl.uniform1i(teapotShader.useTexturesUniform, texture != "none");
 
         gl.activeTexture(gl.TEXTURE0);
         if (texture == "earth") {
@@ -308,13 +307,13 @@
         } else if (texture == "galvanized") {
            gl.bindTexture(gl.TEXTURE_2D, galvanizedTexture);
         }
-        gl.uniform1i(shaderProgram.samplerUniform, 0);
+        gl.uniform1i(teapotShader.samplerUniform, 0);
 
-        gl.uniform1f(shaderProgram.materialShininessUniform, parseFloat(document.getElementById("shininess").value));
+        gl.uniform1f(teapotShader.materialShininessUniform, parseFloat(document.getElementById("shininess").value));
         var camMat = keyboardControls.getCamMatrix();
-        gl.uniformMatrix4fv(shaderProgram.camMatrix, false, camMat);
-        // gl.uniformMatrix4fv(shaderProgram.camMatrix, false, camMatrix);
-        gl.uniformMatrix4fv(shaderProgram.frustum, false, frustum);
+        gl.uniformMatrix4fv(teapotShader.camMatrix, false, camMat);
+        // gl.uniformMatrix4fv(teapotShader.camMatrix, false, camMatrix);
+        gl.uniformMatrix4fv(teapotShader.frustum, false, frustum);
 
         for (var i = 0; i < ourObjects.length; i++) {
            drawModel(ourObjects[i]);
@@ -333,12 +332,13 @@
 		gl.disable(gl.DEPTH_TEST);
 		gl.useProgram(skyBoxShaders);
         gl.uniform1i(skyBoxShaders.useTexturesUniform, skyTexture != "none");
-		var temp = mat4.clone(camMatrix);
+        var camMat = keyboardControls.getCamMatrix();
+		var temp = mat4.clone(camMat);
 		temp[3]=0;
 		temp[7]=0;
 		temp[11]=0;
 		temp[15]=0;
-		
+
 		gl.uniformMatrix4fv(skyBoxShaders.camMatrix, false, temp);
 		gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, skyTexture);
@@ -372,22 +372,19 @@
 	}
 	
     function drawModel(model) {
-        // now to render the mesh
-        gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
         gl.bindBuffer(gl.ARRAY_BUFFER,  model.meshData.vertexBuffer);
-        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute,  model.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        gl.vertexAttribPointer(teapotShader.vertexPositionAttribute,  model.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         if(! model.meshData.textures.length){
-            gl.disableVertexAttribArray(shaderProgram.textureCoordAttribute);
+            gl.disableVertexAttribArray(teapotShader.textureCoordAttribute);
         } else {
-            gl.enableVertexAttribArray(shaderProgram.textureCoordAttribute);
-            gl.bindBuffer(gl.ARRAY_BUFFER,  model.meshData.textureBuffer);
-            gl.vertexAttribPointer(shaderProgram.textureCoordAttribute,  model.meshData.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(teapotShader.textureCoordAttribute);
+            gl.bindBuffer(gl.ARRAY_BUFFER, model.meshData.textureBuffer);
+            gl.vertexAttribPointer(teapotShader.textureCoordAttribute,  model.meshData.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
         }
 
-        gl.enableVertexAttribArray(shaderProgram.vertexNormalAttribute);
         gl.bindBuffer(gl.ARRAY_BUFFER,  model.meshData.normalBuffer);
-        gl.vertexAttribPointer(shaderProgram.vertexNormalAttribute,  model.meshData.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        gl.vertexAttribPointer(teapotShader.vertexNormalAttribute,  model.meshData.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  model.meshData.indexBuffer);
         setMatrixUniforms(model);
@@ -427,10 +424,9 @@
 
     function loadObjects(){
         OBJ.downloadMeshes({
-              
 			'skyBox': 'objects/skybox.obj',
             'teapot': 'objects/teapot.obj',
-            'eHouse': 'objects/emilHouse.obj'
+            'eHouse': 'objects/simpleHouse.obj'
         }, webGLAddObj);
     }
 
