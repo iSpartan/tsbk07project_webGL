@@ -73,14 +73,10 @@
         skyBoxShaders.vertexPositionAttribute = gl.getAttribLocation(skyBoxShaders, "aPosition");
         gl.enableVertexAttribArray(skyBoxShaders.vertexPositionAttribute);
 
-        skyBoxShaders.vertexNormalAttribute = gl.getAttribLocation(skyBoxShaders, "aVertexNormal");
         gl.enableVertexAttribArray(skyBoxShaders.vertexNormalAttribute);
 
         skyBoxShaders.textureCoordAttribute = gl.getAttribLocation(skyBoxShaders, "aTexCoord");
         gl.enableVertexAttribArray(skyBoxShaders.textureCoordAttribute);
-
-        skyBoxShaders.mvMatrixUniform = gl.getUniformLocation(skyBoxShaders, "uMVMatrix");
-        skyBoxShaders.nMatrixUniform = gl.getUniformLocation(skyBoxShaders, "uNMatrix");
         skyBoxShaders.camMatrix = gl.getUniformLocation(skyBoxShaders, "camMatrix");
         skyBoxShaders.samplerUniform = gl.getUniformLocation(skyBoxShaders, "uTexSky");
     }
@@ -158,9 +154,9 @@
         skyTexture.image = new Image();
         skyTexture.image.onload = function () {
             handleLoadedTexture(skyTexture)
+			console.log("image is loaded");
         }
         skyTexture.image.src = "textures/earth.jpg";
-		//skyTexture.image.onLoad.listen((e){console.log("image is loaded");});
 
         terrainHeightMap = new Image();
         terrainHeightMap.onload = function () {
@@ -223,7 +219,7 @@
 		mat4.identity(skyMat);
 		skyBox.positionMatrix = skyMat; 
 		ourBox.push(skyBox);
-		
+
 		teapot2.radius = 5;
         eHouse = {name: "eHouse"};
         eHouse.meshData = ourMeshes.eHouse;
@@ -334,10 +330,9 @@
         gl.uniform1i(skyBoxShaders.useTexturesUniform, skyTexture != "none");
         var camMat = keyboardControls.getCamMatrix();
 		var temp = mat4.clone(camMat);
-		temp[3]=0;
-		temp[7]=0;
-		temp[11]=0;
-		temp[15]=0;
+		temp[12]=0;
+		temp[13]=0;
+		temp[14]=0;
 
 		gl.uniformMatrix4fv(skyBoxShaders.camMatrix, false, temp);
 		gl.activeTexture(gl.TEXTURE0);
@@ -357,22 +352,17 @@
         }
 
         gl.bindBuffer(gl.ARRAY_BUFFER,  skyBox.meshData.normalBuffer);
-        gl.vertexAttribPointer(skyBoxShaders.vertexNormalAttribute,  skyBox.meshData.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+       // gl.vertexAttribPointer(skyBoxShaders.vertexNormalAttribute,  skyBox.meshData.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  skyBox.meshData.indexBuffer);
         
-		gl.uniformMatrix4fv(skyBoxShaders.mvMatrixUniform, false, skyBox.positionMatrix);
-		
-		console.log(skyBox.positionMatrix);
-		
-		console.log(temp);
-		
+		//gl.uniformMatrix4fv(skyBoxShaders.mvMatrixUniform, false, skyBox.positionMatrix);
 		
 		var normalMatrix = mat3.create();
         mat3.fromMat4(normalMatrix, skyBox.positionMatrix);
   
-        gl.uniformMatrix3fv(skyBoxShaders.nMatrixUniform, false, normalMatrix);
-        gl.drawElements(gl.TRIANGLES,  skyBox.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+        //gl.uniformMatrix3fv(skyBoxShaders.nMatrixUniform, false, normalMatrix);
+        gl.drawElements(gl.TRIANGLES, skyBox.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 		gl.enable(gl.DEPTH_TEST);
 	}
 	
@@ -438,10 +428,10 @@
     function webGLStart() {
         var canvas = document.getElementById("lesson14-canvas");
         initGL(canvas);
+		initTextures();
         mat4.perspective(frustum, 45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0);
         loadObjects();
         initShaders();
-        initTextures();
         mat4.identity(camMatrix);
         keyboardControls = new keyboardControls();
 
