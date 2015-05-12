@@ -1,17 +1,12 @@
- precision mediump float;
-
-attribute vec3 aPosition;
+attribute vec3 aVertexPosition;
 attribute vec2 aTexCoord;
 
 uniform mat4 camMatrix;
+uniform mat4 frustum;
 
 varying vec2 vTexCoord;
 
-void main(void)
-{
+ void main(void) {
 	vTexCoord = aTexCoord;
-	//gl_Position = camMatrix*vec4(aPosition, 1.0);
-	gl_Position =  vec4(10.0, 10.0, 10.0, 1.0);
-	
-	
+	gl_Position = frustum * camMatrix  * vec4(aVertexPosition, 1.0);
 }
