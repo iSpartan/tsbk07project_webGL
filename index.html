@@ -253,7 +253,6 @@
         var texture = document.getElementById("texture").value;
         gl.uniform1i(shaderProgram.useTexturesUniform, texture != "none");
 
-
         gl.activeTexture(gl.TEXTURE0);
         if (texture == "earth") {
            gl.bindTexture(gl.TEXTURE_2D, earthTexture);
