@@ -63,15 +63,15 @@
 		skyBoxShaders.vertexPositionAttribute = gl.getAttribLocation(skyBoxShaders, "aPosition");
         gl.enableVertexAttribArray(skyBoxShaders.vertexPositionAttribute);
 
-       // shaderProgram.vertexNormalAttribute = gl.getAttribLocation(shaderProgram, "aVertexNormal");
-        //gl.enableVertexAttribArray(shaderProgram.vertexNormalAttribute);
+        skyBoxShaders.vertexNormalAttribute = gl.getAttribLocation(skyBoxShaders, "aVertexNormal");
+        gl.enableVertexAttribArray(skyBoxShaders.vertexNormalAttribute);
 
         skyBoxShaders.textureCoordAttribute = gl.getAttribLocation(skyBoxShaders, "aTexCoord");
         gl.enableVertexAttribArray(skyBoxShaders.textureCoordAttribute);
 
         //shaderProgram.frustum = gl.getUniformLocation(shaderProgram, "frustum");
         skyBoxShaders.mvMatrixUniform = gl.getUniformLocation(skyBoxShaders, "uMVMatrix");
-        //shaderProgram.nMatrixUniform = gl.getUniformLocation(shaderProgram, "uNMatrix");
+        skyBoxShaders.nMatrixUniform = gl.getUniformLocation(skyBoxShaders, "uNMatrix");
         skyBoxShaders.camMatrix = gl.getUniformLocation(skyBoxShaders, "camMatrix");
         skyBoxShaders.samplerUniform = gl.getUniformLocation(skyBoxShaders, "uTexSky");
 		
@@ -122,7 +122,8 @@
         skyTexture.image.onload = function () {
             handleLoadedTexture(skyTexture)
         }
-        skyTexture.image.src = "textures/SkyBox512.tga";
+        skyTexture.image.src = "textures/earth.jpg";
+		//skyTexture.image.onLoad.listen((e){console.log("image is loaded");});
     }
 
     var camMatrix = mat4.create();
@@ -145,6 +146,7 @@
 
     var ourMeshes = {};
     var ourObjects = [];
+	var ourBox = [];
 
     function webGLAddObj(meshes){
         ourMeshes = meshes;
@@ -157,21 +159,27 @@
     function createObjects(){
         var teapot1, teapot2, mesh, skyBoxMesh;
         mesh = ourMeshes.teapot;
+		
         teapot1 = {name:"teapot1"};
         teapot1.meshData = mesh;
-		teapot1.radius = 10;
+		teapot1.radius = 1;
 
         teapot2 = {name:"teapot2"};
         teapot2.meshData = mesh;
-		teapot2.radius = 5;
+		teapot2.radius = 1;
 		
 		skyBoxMesh = ourMeshes.skyBox;
+		
 		skyBox = {name:"skyBox"};
 		skyBox.meshData = skyBoxMesh;
-		var skyMat = mat4.create;
+		skyBox.radius = 5;
+		
+		var skyMat = mat4.create();
 		mat4.identity(skyMat);
 		mat4.translate(skyMat, skyMat, [10,10,10]);
+		mat4.rotate(skyMat, skyMat, degToRad(23.4), [1, 0, -1]);
 		skyBox.positionMatrix = skyMat; 
+		ourBox.push(skyBox);
 
         var teapot1Mat = mat4.create(), teapot2Mat = mat4.create();
 
@@ -194,10 +202,13 @@
     var teapotAngle = 180;
 
     function drawScene() {
-		drawSkyBox();
-		gl.useProgram(shaderProgram);
-        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+		gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		if(skyBox != null){
+		drawSkyBox();
+		}
+		gl.useProgram(shaderProgram);
+        
 
         var specularHighlights = document.getElementById("specular").checked;
         gl.uniform1i(shaderProgram.showSpecularHighlightsUniform, specularHighlights);
@@ -255,21 +266,28 @@
     }
 
 	function drawSkyBox(){
+		gl.disable(gl.DEPTH_TEST);
 		gl.useProgram(skyBoxShaders);
         gl.uniform1i(skyBoxShaders.useTexturesUniform, skyTexture != "none");
-		gl.uniformMatrix4fv(skyBoxShaders.camMatrix, false, camMatrix);
+		var temp = mat4.clone(camMatrix);
+		temp[3]=0;
+		temp[7]=0;
+		temp[11]=0;
+		temp[15]=0;
+		
+		
+		gl.uniformMatrix4fv(skyBoxShaders.camMatrix, false, temp);
 		gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, skyTexture);
 		gl.uniform1i(skyBoxShaders.samplerUniform, 0);
-		//drawmodel 
-		drawSkyBox();
 		
 		gl.bindBuffer(gl.ARRAY_BUFFER,  skyBox.meshData.vertexBuffer);
         gl.vertexAttribPointer(skyBoxShaders.vertexPositionAttribute,  skyBox.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         if(! skyBox.meshData.textures.length){
+			
             gl.disableVertexAttribArray(skyBoxShaders.textureCoordAttribute);
-        } else {
+       } else {
             gl.enableVertexAttribArray(skyBoxShaders.textureCoordAttribute);
             gl.bindBuffer(gl.ARRAY_BUFFER,  skyBox.meshData.textureBuffer);
             gl.vertexAttribPointer(skyBoxShaders.textureCoordAttribute,  skyBox.meshData.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
@@ -279,23 +297,15 @@
         gl.vertexAttribPointer(skyBoxShaders.vertexNormalAttribute,  skyBox.meshData.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  skyBox.meshData.indexBuffer);
-        //setMatrixUniforms(skyBox);
-		
-		console.log(skyBox.positionMatrix);
+        
 		gl.uniformMatrix4fv(skyBoxShaders.mvMatrixUniform, false, skyBox.positionMatrix);
 		
-
-        var normalMatrix = mat3.create();
-       // mat3.fromMat4(normalMatrix, model.positionMatrix);
-        //mat3.invert(normalMatrix, normalMatrix);
-        //mat4.toInverseMat3(model.positionMatrix, normalMatrix);
-        //mat3.transpose(normalMatrix, normalMatrix);
-        //gl.uniformMatrix3fv(skyBoxShaders.nMatrixUniform, false, normalMatrix);
-		
-		//end 
+		var normalMatrix = mat3.create();
+        mat3.fromMat4(normalMatrix, skyBox.positionMatrix);
+  
+        gl.uniformMatrix3fv(skyBoxShaders.nMatrixUniform, false, normalMatrix);
         gl.drawElements(gl.TRIANGLES,  skyBox.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
-		//end drawmodel
-		
+		gl.enable(gl.DEPTH_TEST);
 	}
 	
 	function getDistanceToModel(pos){
@@ -317,12 +327,12 @@
 			}
 		};
 		difference = someModels[indexOfClosest].radius-shortestDist;
-		if(difference > 0 ){
+		//if(difference > 0 ){
 			return difference;
-		}
-		else if(difference > -0.1){ //returns negative value for when camera is pretty close to object
-			return -difference;
-		}
+		//}
+		//else if(difference > -0.1){ //returns negative value for when camera is pretty close to object
+			//return -difference;
+		//}
 		return 0; 
 	}
 	function getModelPosistion(posMatrix){
@@ -410,8 +420,8 @@
 
     function loadObjects(){
         OBJ.downloadMeshes({
-            'teapot': 'objects/teapot.obj',  
-			'skyBox': 'objects/skybox.obj'
+              
+			'skyBox': 'objects/skybox.obj','teapot': 'objects/teapot.obj'
         }, webGLAddObj);
     }
 
@@ -531,7 +541,9 @@
             speedY = 0;
 			changeY = false;
         }
-		var collisionValue = isColliding(ourObjects);
+		
+		var collisionValue = isColliding(ourBox);
+
 		if( collisionValue > 0.05){
 		
 			if (changeZ ) {

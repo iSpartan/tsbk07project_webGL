@@ -12,6 +12,7 @@ void main(void)
 	vec4 fragmentColor;
         
     fragmentColor = texture2D(uTexSky, vec2(vTexCoord.s, vTexCoord.t));
-    gl_FragColor = vec4(fragmentColor.rgb, fragmentColor.a);
+    //gl_FragColor = vec4(fragmentColor.rgb, fragmentColor.a);
+	gl_FragColor = vec4(0.5 , 0.5, 0.5, 0.5);
 	
 }

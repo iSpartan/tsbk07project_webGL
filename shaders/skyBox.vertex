@@ -2,17 +2,21 @@
 
 attribute vec3 aPosition;
 attribute vec2 aTexCoord;
+attribute vec3 aVertexNormal;
 
-varying vec2 vTexCoord;
-
+uniform mat3 uNMatrix;
 uniform mat4 camMatrix;
 uniform mat4 uMVMatrix;
 
+varying vec2 vTexCoord;
+
 void main(void)
 {
-	
+	vec3 temp = aVertexNormal;
+	mat3 temp2 =  uNMatrix;
 	vTexCoord = aTexCoord;
-	//gl_Position = uMVMatrix * camMatrix * vec4(aPosition, 1.0);
-	gl_Position = uMVMatrix * camMatrix * vec4(1.0,1.0,1.0, 1.0);
+	gl_Position = uMVMatrix * camMatrix * vec4(aPosition, 1.0);
+	//gl_Position =  vec4(aPosition, 1.0);
+	
 	
 }
