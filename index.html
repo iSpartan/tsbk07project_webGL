@@ -29,7 +29,8 @@
             alert("Could not initialise WebGL, sorry :-(");
         }
     }
-        function handleKeyDown(event) {
+
+    function handleKeyDown(event) {
         keyboardControls.handleKeyDown(event);
     }
 
@@ -70,18 +71,15 @@
 
     function setskyBoxShaderProgramVars(){
         gl.useProgram(skyBoxShaders);
-        skyBoxShaders.vertexPositionAttribute = gl.getAttribLocation(skyBoxShaders, "aPosition");
-        gl.enableVertexAttribArray(skyBoxShaders.vertexPositionAttribute);
 
-        skyBoxShaders.vertexNormalAttribute = gl.getAttribLocation(skyBoxShaders, "aVertexNormal");
-        gl.enableVertexAttribArray(skyBoxShaders.vertexNormalAttribute);
+        skyBoxShaders.vertexPositionAttribute = gl.getAttribLocation(skyBoxShaders, "aVertexPosition");
+        gl.enableVertexAttribArray(skyBoxShaders.vertexPositionAttribute);
 
         skyBoxShaders.textureCoordAttribute = gl.getAttribLocation(skyBoxShaders, "aTexCoord");
         gl.enableVertexAttribArray(skyBoxShaders.textureCoordAttribute);
 
-        skyBoxShaders.mvMatrixUniform = gl.getUniformLocation(skyBoxShaders, "uMVMatrix");
-        skyBoxShaders.nMatrixUniform = gl.getUniformLocation(skyBoxShaders, "uNMatrix");
         skyBoxShaders.camMatrix = gl.getUniformLocation(skyBoxShaders, "camMatrix");
+        skyBoxShaders.frustum = gl.getUniformLocation(skyBoxShaders, "frustum");
         skyBoxShaders.samplerUniform = gl.getUniformLocation(skyBoxShaders, "uTexSky");
     }
 
@@ -105,11 +103,11 @@
 
         teapotShader = utils.addShaderProg(gl, 'teapot.vertex', 'teapot.frag');
         terrainShader = utils.addShaderProg(gl, 'terrain.vertex', 'terrain.frag');
-		skyBoxShaders = utils.addShaderProg(gl, 'skyBox.vertex', 'skyBox.frag')
+		skyBoxShaders = utils.addShaderProg(gl, 'skyBox.vertex', 'skyBox.frag');
 
         setTeapotShaderProgramVars();
-        setskyBoxShaderProgramVars()
         setTerrainShaderProgramVars();
+        setskyBoxShaderProgramVars();
 
     }
 
@@ -120,8 +118,8 @@
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
         gl.generateMipmap(gl.TEXTURE_2D);
-
         gl.bindTexture(gl.TEXTURE_2D, null);
+        texture.isFinished = true;
     }
 
     function handleLoadedHeightMap(texture) {
@@ -137,10 +135,20 @@
     var earthTexture;
 	var skyTexture;
 	var terrainHeightMap;
+    var oneByOneTexture;
 
     function initTextures() {
 
+        oneByOneTexture = gl.createTexture();
+        oneByOneTexture.isFinished = false;
+        oneByOneTexture.image = new Image();
+        oneByOneTexture.image.onload = function () {
+            handleLoadedTexture(oneByOneTexture)
+        }
+        oneByOneTexture.image.src = "textures/1x1.jpg";
+
         galvanizedTexture = gl.createTexture();
+        galvanizedTexture.isFinished = false;
         galvanizedTexture.image = new Image();
         galvanizedTexture.image.onload = function () {
             handleLoadedTexture(galvanizedTexture)
@@ -148,6 +156,7 @@
         galvanizedTexture.image.src = "textures/arroway.de_metal+structure+06_d100_flat.jpg";
 
         earthTexture = gl.createTexture();
+        earthTexture.isFinished = false;
         earthTexture.image = new Image();
         earthTexture.image.onload = function () {
             handleLoadedTexture(earthTexture)
@@ -155,12 +164,12 @@
         earthTexture.image.src = "textures/earth.jpg";
 		
 		skyTexture = gl.createTexture();
+        skyTexture.isFinished = false;
         skyTexture.image = new Image();
         skyTexture.image.onload = function () {
             handleLoadedTexture(skyTexture)
         }
-        skyTexture.image.src = "textures/earth.jpg";
-		//skyTexture.image.onLoad.listen((e){console.log("image is loaded");});
+        skyTexture.image.src = "textures/SkyBox512.jpg";
 
         terrainHeightMap = new Image();
         terrainHeightMap.onload = function () {
@@ -170,7 +179,6 @@
         // terrainHeightMap.src = "textures/44-terrain.jpg";
     }
 
-    var camMatrix = mat4.create();
     var frustum = mat4.create();
 
     function setMatrixUniforms(model) {
@@ -189,7 +197,6 @@
 
     var ourMeshes = {};
     var ourObjects = [];
-	var ourBox = [];
     var terrain = {};
 
     function webGLAddObj(meshes){
@@ -212,24 +219,23 @@
         teapot2 = {name:"teapot2"};
         teapot2.meshData = mesh;
 		teapot2.radius = 1;
-		
+
 		skyBoxMesh = ourMeshes.skyBox;
 		
 		skyBox = {name:"skyBox"};
 		skyBox.meshData = skyBoxMesh;
 		skyBox.radius = 5;
 		
-		var skyMat = mat4.create();
-		mat4.identity(skyMat);
-		skyBox.positionMatrix = skyMat; 
-		ourBox.push(skyBox);
-		
 		teapot2.radius = 5;
         eHouse = {name: "eHouse"};
         eHouse.meshData = ourMeshes.eHouse;
         eHouse.radius = 1;
 
-        var teapot1Mat = mat4.create(), teapot2Mat = mat4.create(), eHouseMat = mat4.create();
+        var skyMat = mat4.create() ,teapot1Mat = mat4.create(), teapot2Mat = mat4.create(), eHouseMat = mat4.create();
+
+        mat4.identity(skyMat);
+        mat4.translate(skyMat, skyMat, [ 0, -4, 0]);
+        skyBox.positionMatrix = skyMat;
 
         mat4.identity(teapot1Mat);
         mat4.translate(teapot1Mat, teapot1Mat, [-10, 0, -40]);
@@ -246,11 +252,11 @@
         ourObjects.push(teapot2);
 		
         mat4.identity(eHouseMat);
-        mat4.translate(eHouseMat, eHouseMat, [-10, 20, -40]);
+        mat4.translate(eHouseMat, eHouseMat, [-10, 10, -40]);
         // mat4.rotate(eHouseMat, eHouseMat, degToRad(23.4), [1, 0, -1]);
         // mat4.rotate(eHouseMat, eHouseMat, degToRad(teapotAngle), [0, 1, 0]);
         eHouse.positionMatrix = eHouseMat;
-        ourObjects.push(eHouse);
+        //ourObjects.push(eHouse);
     }
 
     var teapotAngle = 180;
@@ -259,7 +265,7 @@
         gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 		if(skyBox != null){
-		drawSkyBox();
+		      drawSkyBox();
 		}
 		gl.useProgram(teapotShader);
         
@@ -303,27 +309,35 @@
 
         gl.activeTexture(gl.TEXTURE0);
         if (texture == "earth") {
-           gl.bindTexture(gl.TEXTURE_2D, earthTexture);
+            if (earthTexture.isFinished) {
+                gl.bindTexture(gl.TEXTURE_2D, earthTexture);
+            } else{
+                gl.bindTexture(gl.TEXTURE_2D, oneByOneTexture);
+            }
         } else if (texture == "galvanized") {
+            if (galvanizedTexture.isFinished) {
            gl.bindTexture(gl.TEXTURE_2D, galvanizedTexture);
+            } else{
+                gl.bindTexture(gl.TEXTURE_2D, oneByOneTexture);
+            }
         }
         gl.uniform1i(teapotShader.samplerUniform, 0);
 
         gl.uniform1f(teapotShader.materialShininessUniform, parseFloat(document.getElementById("shininess").value));
         var camMat = keyboardControls.getCamMatrix();
         gl.uniformMatrix4fv(teapotShader.camMatrix, false, camMat);
-        // gl.uniformMatrix4fv(teapotShader.camMatrix, false, camMatrix);
         gl.uniformMatrix4fv(teapotShader.frustum, false, frustum);
 
         for (var i = 0; i < ourObjects.length; i++) {
            drawModel(ourObjects[i]);
-        };
+        }
         if (terrain != null && terrain.isFinished) {
             drawTerrain();
         }
 
-        if(!once && terrain != null && terrain.isFinished){
-        console.log(terrain);
+        if(!once && terrain != null && terrain.isFinished && skyBox != null){
+        // console.log(terrain);
+        console.log(skyBox);
         once = true;
         }
     }
@@ -331,24 +345,27 @@
 	function drawSkyBox(){
 		gl.disable(gl.DEPTH_TEST);
 		gl.useProgram(skyBoxShaders);
-        gl.uniform1i(skyBoxShaders.useTexturesUniform, skyTexture != "none");
         var camMat = keyboardControls.getCamMatrix();
 		var temp = mat4.clone(camMat);
-		temp[3]=0;
-		temp[7]=0;
-		temp[11]=0;
-		temp[15]=0;
+		temp[12]=0;
+		temp[13]=-0.5;
+		temp[14]=0;
 
 		gl.uniformMatrix4fv(skyBoxShaders.camMatrix, false, temp);
+        gl.uniformMatrix4fv(skyBoxShaders.frustum, false, frustum);
+
 		gl.activeTexture(gl.TEXTURE0);
-        gl.bindTexture(gl.TEXTURE_2D, skyTexture);
+        if (skyTexture.isFinished) {
+                gl.bindTexture(gl.TEXTURE_2D, skyTexture);
+            } else{
+                gl.bindTexture(gl.TEXTURE_2D, oneByOneTexture);
+            }
 		gl.uniform1i(skyBoxShaders.samplerUniform, 0);
 		
 		gl.bindBuffer(gl.ARRAY_BUFFER,  skyBox.meshData.vertexBuffer);
         gl.vertexAttribPointer(skyBoxShaders.vertexPositionAttribute,  skyBox.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         if(! skyBox.meshData.textures.length){
-			
             gl.disableVertexAttribArray(skyBoxShaders.textureCoordAttribute);
        } else {
             gl.enableVertexAttribArray(skyBoxShaders.textureCoordAttribute);
@@ -356,17 +373,8 @@
             gl.vertexAttribPointer(skyBoxShaders.textureCoordAttribute,  skyBox.meshData.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
         }
 
-        gl.bindBuffer(gl.ARRAY_BUFFER,  skyBox.meshData.normalBuffer);
-        gl.vertexAttribPointer(skyBoxShaders.vertexNormalAttribute,  skyBox.meshData.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  skyBox.meshData.indexBuffer);
-        
-		gl.uniformMatrix4fv(skyBoxShaders.mvMatrixUniform, false, skyBox.positionMatrix);
-		
-		var normalMatrix = mat3.create();
-        mat3.fromMat4(normalMatrix, skyBox.positionMatrix);
-  
-        gl.uniformMatrix3fv(skyBoxShaders.nMatrixUniform, false, normalMatrix);
+
         gl.drawElements(gl.TRIANGLES,  skyBox.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 		gl.enable(gl.DEPTH_TEST);
 	}
@@ -433,11 +441,10 @@
     function webGLStart() {
         var canvas = document.getElementById("lesson14-canvas");
         initGL(canvas);
+        initTextures();
+        initShaders();
         mat4.perspective(frustum, 45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0);
         loadObjects();
-        initShaders();
-        initTextures();
-        mat4.identity(camMatrix);
         keyboardControls = new keyboardControls();
 
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
