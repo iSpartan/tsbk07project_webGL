@@ -21,6 +21,7 @@
     function initGL(canvas) {
         try {
             gl = canvas.getContext("experimental-webgl");
+            gl.getExtension('OES_standard_derivatives');
             gl.viewportWidth = canvas.width;
             gl.viewportHeight = canvas.height;
         } catch (e) {
@@ -89,14 +90,20 @@
         terrainShader.vertexPositionAttribute = gl.getAttribLocation(terrainShader, "aVertexPosition");
         gl.enableVertexAttribArray(terrainShader.vertexPositionAttribute);
 
-        //terrainShader.vertexNormalAttribute = gl.getAttribLocation(terrainShader, "aVertexNormal");
-        //gl.enableVertexAttribArray(terrainShader.vertexNormalAttribute);
+        terrainShader.vertexNormalAttribute = gl.getAttribLocation(terrainShader, "aVertexNormal");
+        gl.enableVertexAttribArray(terrainShader.vertexNormalAttribute);
 
         terrainShader.vertexColorAttribute = gl.getAttribLocation(terrainShader, "aColorAttrib");
         gl.enableVertexAttribArray(terrainShader.vertexColorAttribute);
 
+        // terrainShader.textureCoordAttribute = gl.getAttribLocation(terrainShader, "aTextureCoord");
+        // gl.enableVertexAttribArray(terrainShader.textureCoordAttribute);
+
+        terrainShader.mvMatrixUniform = gl.getUniformLocation(terrainShader, "uMVMatrix");
         terrainShader.frustum = gl.getUniformLocation(terrainShader, "frustum");
         terrainShader.camMatrix = gl.getUniformLocation(terrainShader, "camMatrix");
+        terrainShader.samplerUniform = gl.getUniformLocation(terrainShader, "uTexBump");
+        terrainShader.nMatrixUniform = gl.getUniformLocation(terrainShader, "uNMatrix");
     }
 
     function initShaders() {
@@ -126,6 +133,12 @@
         gl.useProgram(terrainShader);
         terrain = new TerrainBlock(terrainHeightMap, 256, 256);
         terrain.isFinished = false;
+
+        var pos = mat4.create();
+        mat4.identity(pos);
+        mat4.translate(pos, pos, [ -80, -15, -80]);
+
+        terrain.positionMatrix = pos;
         terrain.buildVertices();
         terrain.buildIndices();
         terrain.buildBuffers(gl);
@@ -136,6 +149,7 @@
 	var skyTexture;
 	var terrainHeightMap;
     var oneByOneTexture;
+    var noiseBumpMap;
 
     function initTextures() {
 
@@ -154,6 +168,14 @@
             handleLoadedTexture(galvanizedTexture)
         }
         galvanizedTexture.image.src = "textures/arroway.de_metal+structure+06_d100_flat.jpg";
+
+        noiseBumpMap = gl.createTexture();
+        noiseBumpMap.isFinished = false;
+        noiseBumpMap.image = new Image();
+        noiseBumpMap.image.onload = function () {
+            handleLoadedTexture(noiseBumpMap)
+        }
+        noiseBumpMap.image.src = "textures/noise.jpg";
 
         earthTexture = gl.createTexture();
         earthTexture.isFinished = false;
@@ -181,14 +203,14 @@
 
     var frustum = mat4.create();
 
-    function setMatrixUniforms(model) {
-        gl.uniformMatrix4fv(teapotShader.mvMatrixUniform, false, model.positionMatrix);
+    function setMatrixUniforms(shader, model) {
+        gl.uniformMatrix4fv(shader.mvMatrixUniform, false, model.positionMatrix);
 
         var normalMatrix = mat3.create();
         mat3.fromMat4(normalMatrix, model.positionMatrix);
         mat3.invert(normalMatrix, normalMatrix);
         mat3.transpose(normalMatrix, normalMatrix);
-        gl.uniformMatrix3fv(teapotShader.nMatrixUniform, false, normalMatrix);
+        gl.uniformMatrix3fv(shader.nMatrixUniform, false, normalMatrix);
     }
 
     function degToRad(degrees) {
@@ -231,7 +253,7 @@
         eHouse.meshData = ourMeshes.eHouse;
         eHouse.radius = 1;
 
-        var skyMat = mat4.create() ,teapot1Mat = mat4.create(), teapot2Mat = mat4.create(), eHouseMat = mat4.create();
+        var skyMat = mat4.create(), teapot1Mat = mat4.create(), teapot2Mat = mat4.create(), eHouseMat = mat4.create();
 
         mat4.identity(skyMat);
         mat4.translate(skyMat, skyMat, [ 0, -4, 0]);
@@ -336,8 +358,8 @@
         }
 
         if(!once && terrain != null && terrain.isFinished && skyBox != null){
-        // console.log(terrain);
-        console.log(skyBox);
+        console.log(terrain);
+        // console.log(skyBox);
         once = true;
         }
     }
@@ -395,7 +417,7 @@
         gl.vertexAttribPointer(teapotShader.vertexNormalAttribute,  model.meshData.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  model.meshData.indexBuffer);
-        setMatrixUniforms(model);
+        setMatrixUniforms(teapotShader, model);
         gl.drawElements(gl.TRIANGLES,  model.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
     }
 
@@ -407,17 +429,35 @@
         gl.uniformMatrix4fv(terrainShader.frustum, false, frustum);
         // now to render the mesh
 
+        gl.activeTexture(gl.TEXTURE0);
+        if (noiseBumpMap.isFinished) {
+                gl.bindTexture(gl.TEXTURE_2D, noiseBumpMap);
+            } else{
+                gl.bindTexture(gl.TEXTURE_2D, oneByOneTexture);
+        }
+        gl.uniform1i(terrainShader.samplerUniform, 0);
+
         gl.bindBuffer(gl.ARRAY_BUFFER,  terrain.vertexBuffer);
         gl.vertexAttribPointer(terrainShader.vertexPositionAttribute,  terrain.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+       //  if(!terrain.textures.length){
+       //      gl.disableVertexAttribArray(terrainShader.textureCoordAttribute);
+       // } else {
+       //      gl.enableVertexAttribArray(terrainShader.textureCoordAttribute);
+       //      gl.bindBuffer(gl.ARRAY_BUFFER,  terrain.textureBuffer);
+       //      gl.vertexAttribPointer(terrainShader.textureCoordAttribute,  terrain.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
+       //  }
 
         gl.bindBuffer(gl.ARRAY_BUFFER,  terrain.colorBuffer);
         gl.vertexAttribPointer(terrainShader.vertexColorAttribute,  terrain.colorBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-        //gl.bindBuffer(gl.ARRAY_BUFFER,  terrain.normalBuffer);
-        //gl.vertexAttribPointer(terrainShader.vertexNormalAttribute,  terrain.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER,  terrain.normalBuffer);
+        gl.vertexAttribPointer(terrainShader.vertexNormalAttribute,  terrain.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  terrain.indexBuffer);
-        //setMatrixUniforms(terrain);
+
+        // gl.uniformMatrix4fv(terrainShader.mvMatrixUniform, false, terrain.positionMatrix);
+        setMatrixUniforms(terrainShader, terrain);
 
         gl.drawElements(gl.TRIANGLES,  terrain.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
     }

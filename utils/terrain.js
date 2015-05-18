@@ -41,11 +41,7 @@ var Heightmap = (function () {
     var all = 0;
     for (var i = 0, n = size; i < n; i += (4)) {
         all = pix[i]+pix[i+1]+pix[i+2];
-        if (isNaN(all)) {
-            //console.log(pix[i]+pix[i+1]+pix[i+2])
-            //console.log("----------")
-        };
-        heigthData[j++] = all/50;
+        heigthData[j++] = all/60;
         if (heigthData[j] > maxHeight) {
             maxHeight = heigthData[j];
         };
@@ -173,8 +169,9 @@ var TerrainBlock = (function () {
                 nX = -(map.getHeight(vX + 1, vZ) - map.getHeight(vX - 1, vZ));
                 nZ = (map.getHeight(vX, vZ + 1) - map.getHeight(vX, vZ - 1));
 
-                // normal = [nX * TerrainBlock.SCALE_VERTICAL, 2 * TerrainBlock.SCALE_HORIZONTAL, nZ * TerrainBlock.SCALE_VERTICAL];
-                // this.normals.push(normal);
+                this.normals.push(nX * TerrainBlock.SCALE_VERTICAL);
+                this.normals.push(2 * TerrainBlock.SCALE_HORIZONTAL);
+                this.normals.push(nZ * TerrainBlock.SCALE_VERTICAL);
 
                 this.normals.push(nX * TerrainBlock.SCALE_VERTICAL);
                 this.normals.push(2 * TerrainBlock.SCALE_HORIZONTAL);
@@ -194,14 +191,6 @@ var TerrainBlock = (function () {
      * Builds terrain indices.
      */
      TerrainBlock.prototype.buildIndices = function () {
-
-        var cS,     // Current square.
-            sX, sZ, // Positon of current square.
-            tl,     // Vertex index: Top left.
-            tr,     // Vertex index: Top right.
-            bl,     // Vertex index: Bottom left.
-            br;     // Vertex index: Bottom right.
-
         for (z = 0; z < this.depth-1; z++){
             for (x = 0; x < this.width-1; x++){
                 // Triangle 1
@@ -215,62 +204,6 @@ var TerrainBlock = (function () {
                 this.indices.push(x+1 + (z+1) * this.depth);
             }
         }
-
-
-
-            // var highestIndex = 0;
-
-        // Build triangles for each square on the terrain plane.
-        // for (cS = 0; cS < this.squares; cS += 1) {
-
-        //     // Calculate current square position.
-        //     sX = cS % (this.heightmap.width - 1);
-        //     sZ = (cS - sX) / (this.heightmap.width - 1);
-
-        //     // Calculate indices of each square corner.
-        //     tl = (sZ * this.heightmap.width) + sX;
-        //     tr = (sZ * this.heightmap.width) + (sX + 1);
-        //     bl = ((sZ + 1) * this.heightmap.width) + sX;
-        //     br = ((sZ + 1) * this.heightmap.width) + (sX + 1);
-
-        //     this.indices.push([
-        //        bl, tr, tl // Triangle Left-Top.
-        //     ]);
-        //     this.indices.push([
-        //        bl, br, tr  // Triangle Right-Bottom.
-        //     ]);
-        //     // this.indices.push([
-        //     //     bl // Triangle Left-Top.
-        //     // ]);
-        //     // this.indices.push([
-        //     //     tr  // Triangle Right-Bottom.
-        //     // ]);
-        //     // this.indices.push([
-        //     //     tl // Triangle Left-Top.
-        //     // ]);
-        //     // this.indices.push([
-        //     //     bl  // Triangle Right-Bottom.
-        //     // ]);
-        //     // this.indices.push([
-        //     //     br // Triangle Left-Top.
-        //     //]);
-        //     //this.indices.push([
-        //     //    tr  // Triangle Right-Bottom.
-        //     //]);
-        //     if (bl > highestIndex){
-        //         highestIndex = bl;
-        //     }
-        //     if( br > highestIndex){
-        //         highestIndex = br;
-        //     }
-        //     if(tl > highestIndex){
-        //         highestIndex = tl;
-        //     }
-        //     if(tr > highestIndex){
-        //         highestIndex = tr
-        //     }
-        // }
-        // this.highestIndex = highestIndex;
     };
 
     /**
@@ -283,38 +216,6 @@ var TerrainBlock = (function () {
     this.vertexBuffer = _buildBuffer(gl, gl.ARRAY_BUFFER, this.vertices, 3);
     this.indexBuffer = _buildBuffer(gl, gl.ELEMENT_ARRAY_BUFFER, this.indices, 1);
     this.isFinished = true;
-
-    //this.vertexBuffer = gl.createBuffer();
-    //gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
-
-    //gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.vertices), gl.STATIC_DRAW);
-    //this.vertexBuffer.itemSize = 3;
-    //this.vertexBuffer.numItems = Math.floor(this.vertices.length / 3);
-
-
-    //this.normalBuffer = gl.createBuffer();
-    //gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
-
-    //gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.normals), gl.STATIC_DRAW);
-    //this.normalBuffer.itemSize = 3;
-    //this.normalBuffer.numItems = Math.floor(this.normals.length / 3); // divide by 2 for texture
-
-
-    //this.colorBuffer = gl.createBuffer();
-    //gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer);
-
-    //gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.colors), gl.STATIC_DRAW);
-    //this.colorBuffer.itemSize = 3;
-    //this.colorBuffer.numItems = Math.floor(this.colors.length / 3); // divide by 2 for texture
-
-
-    //this.indexBuffer = gl.createBuffer();
-    //gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
-
-    //gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.indices), gl.STATIC_DRAW);
-    //this.indexBuffer.itemSize = 1;
-    //this.indexBuffer.numItems = this.indices.length;
-
     };
 
     var _buildBuffer = function( gl, type, data, itemSize ){
