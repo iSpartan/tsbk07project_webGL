@@ -13,10 +13,12 @@ var Heightmap = (function () {
      * @param {Number} height: The heightmaps "height" in 2D.
      *   (When we think about it in 3D it's actually the depth)
      */
-    function Heightmap(img, width, height) {
+    function Heightmap(img, width, height, maxWidth, maxDepth) {
         this.heightmap = createHeightData(img, width, height);
         this.width = width;
         this.height = height;
+        this.maxWidth = maxWidth;
+        this.maxDepth = maxDepth;
         this.maxHeight = getMaxHeight(this.heightmap, width*height);
     };
 
@@ -41,7 +43,7 @@ var Heightmap = (function () {
     var all = 0;
     for (var i = 0, n = size; i < n; i += (4)) {
         all = pix[i]+pix[i+1]+pix[i+2];
-        heigthData[j++] = all/60;
+        heigthData[j++] = all/100;
         if (heigthData[j] > maxHeight) {
             maxHeight = heigthData[j];
         };
@@ -77,8 +79,8 @@ var Heightmap = (function () {
         // positions that are not within the heightmap.
         if (x < 0) x = 0;
         if (y < 0) y = 0;
-        if (x >= this.width) x = this.width - 1;
-        if (y >= this.height) y = this.height - 1;
+        if (x >= this.maxWidth) x = x % (this.width - 1);
+        if (y >= this.maxDepth) y = y % (this.height - 1);
 
         // Determine the height at the specified vertex position.
         return this.heightmap[y * this.width + x];
@@ -117,16 +119,19 @@ var TerrainBlock = (function () {
      * @param {Number} y: Absolute Y position of the terrain block.
      * @param {Number} z: Absolute Z position of the terrain block.
      */
-    function TerrainBlock(img, width, height) {
-        this.heightmap = new Heightmap(img, width, height);
+    function TerrainBlock(img, width, height, maxWidth, maxDepth) {
+        this.heightmap = new Heightmap(img, width, height, maxWidth, maxDepth);
 
         // Calculate width and depth of the terrain block
         // based on the heightmap dimensions but with scaling applied.
-        this.width = width * TerrainBlock.SCALE_HORIZONTAL;
-        this.depth = height * TerrainBlock.SCALE_HORIZONTAL;
+        // this.width = width * TerrainBlock.SCALE_HORIZONTAL;               ORIGINAL
+        // this.depth = height * TerrainBlock.SCALE_HORIZONTAL;
+
+        this.width = maxWidth * TerrainBlock.SCALE_HORIZONTAL;
+        this.depth = maxDepth * TerrainBlock.SCALE_HORIZONTAL;
 
         // Calculate the count of squares
-        this.squares = (this.heightmap.width - 1) * (this.heightmap.height - 1);
+        this.squares = (this.width - 1) * (this.depth - 1);
 
         // This is where we will put our resulting data, which
         // represents the geometry of the terrain block.
@@ -146,7 +151,6 @@ var TerrainBlock = (function () {
             height,     // Current vertex height (scaled).
             nX, nZ;     // Current vertex normal.
         var bottomColor = [102, 51, 0], topColor = [ 0, 102, 0], maxHeight = map.maxHeight;
-
         for (rZ = 0; rZ < this.depth; rZ += TerrainBlock.SCALE_HORIZONTAL) {
             for (rX = 0; rX < this.width; rX += TerrainBlock.SCALE_HORIZONTAL) {
 

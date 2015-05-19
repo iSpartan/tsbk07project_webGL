@@ -16,7 +16,7 @@ var keyboardControls = (function () {
     this.camMatrix = mat4.create();
     mat4.identity(this.camMatrix);
     this.lastStepX = 0, this.lastStepY = 0, this.lastStepZ = 0;
-    this.elapsed;
+    this.elapsed = 0;
     this.MAX_DISTANCE = 10000;
     this.moveSpeed = 0.03;
 
@@ -208,6 +208,10 @@ var keyboardControls = (function () {
     keyboardControls.prototype.getCamMatrix = function() {
         return this.camMatrix;
     };
+
+    keyboardControls.prototype.getElapsedTime = function() {
+        return this.elapsed;
+    }
 
     return keyboardControls;
 })();

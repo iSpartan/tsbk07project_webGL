@@ -82,6 +82,7 @@
         skyBoxShaders.camMatrix = gl.getUniformLocation(skyBoxShaders, "camMatrix");
         skyBoxShaders.frustum = gl.getUniformLocation(skyBoxShaders, "frustum");
         skyBoxShaders.samplerUniform = gl.getUniformLocation(skyBoxShaders, "uTexSky");
+        skyBoxShaders.mvMatrixUniform = gl.getUniformLocation(skyBoxShaders, "uMVMatrix");
     }
 
     function setTerrainShaderProgramVars() {
@@ -131,7 +132,7 @@
 
     function handleLoadedHeightMap(texture) {
         gl.useProgram(terrainShader);
-        terrain = new TerrainBlock(terrainHeightMap, 256, 256);
+        terrain = new TerrainBlock(terrainHeightMap, 256, 256, 256, 256);
         terrain.isFinished = false;
 
         var pos = mat4.create();
@@ -147,51 +148,23 @@
     var galvanizedTexture;
     var earthTexture;
 	var skyTexture;
+    var cloudTexture1;
+    var cloudTexture2;
+    var cloudTexture3;
 	var terrainHeightMap;
     var oneByOneTexture;
     var noiseBumpMap;
 
     function initTextures() {
 
-        oneByOneTexture = gl.createTexture();
-        oneByOneTexture.isFinished = false;
-        oneByOneTexture.image = new Image();
-        oneByOneTexture.image.onload = function () {
-            handleLoadedTexture(oneByOneTexture)
-        }
-        oneByOneTexture.image.src = "textures/1x1.jpg";
-
-        galvanizedTexture = gl.createTexture();
-        galvanizedTexture.isFinished = false;
-        galvanizedTexture.image = new Image();
-        galvanizedTexture.image.onload = function () {
-            handleLoadedTexture(galvanizedTexture)
-        }
-        galvanizedTexture.image.src = "textures/arroway.de_metal+structure+06_d100_flat.jpg";
-
-        noiseBumpMap = gl.createTexture();
-        noiseBumpMap.isFinished = false;
-        noiseBumpMap.image = new Image();
-        noiseBumpMap.image.onload = function () {
-            handleLoadedTexture(noiseBumpMap)
-        }
-        noiseBumpMap.image.src = "textures/noise.jpg";
-
-        earthTexture = gl.createTexture();
-        earthTexture.isFinished = false;
-        earthTexture.image = new Image();
-        earthTexture.image.onload = function () {
-            handleLoadedTexture(earthTexture)
-        }
-        earthTexture.image.src = "textures/earth.jpg";
-		
-		skyTexture = gl.createTexture();
-        skyTexture.isFinished = false;
-        skyTexture.image = new Image();
-        skyTexture.image.onload = function () {
-            handleLoadedTexture(skyTexture)
-        }
-        skyTexture.image.src = "textures/SkyBox512.jpg";
+        oneByOneTexture = setUpTextures(oneByOneTexture, "1x1.jpg");
+        galvanizedTexture = setUpTextures(galvanizedTexture, "arroway.de_metal+structure+06_d100_flat.jpg");
+        noiseBumpMap = setUpTextures(noiseBumpMap, "noise.jpg");
+        earthTexture = setUpTextures(earthTexture, "earth.jpg");
+        skyTexture = setUpTextures(skyTexture, "SkyBox512.jpg");
+        cloudTexture1 = setUpTextures(cloudTexture1, "cloudTex1.png");
+        cloudTexture2 = setUpTextures(cloudTexture2, "cloudTex2.png");
+        cloudTexture3 = setUpTextures(cloudTexture3, "cloudTex3.png");
 
         terrainHeightMap = new Image();
         terrainHeightMap.onload = function () {
@@ -199,6 +172,17 @@
         }
         terrainHeightMap.src = "textures/fft-terrain.jpg";
         // terrainHeightMap.src = "textures/44-terrain.jpg";
+    }
+
+    function setUpTextures(textureVarName, picture){
+        textureVarName = gl.createTexture();
+        textureVarName.isFinished = false;
+        textureVarName.image = new Image();
+        textureVarName.image.onload = function () {
+            handleLoadedTexture(textureVarName)
+        }
+        textureVarName.image.src = "textures/"+picture;
+        return textureVarName;
     }
 
     var frustum = mat4.create();
@@ -220,6 +204,7 @@
     var ourMeshes = {};
     var ourObjects = [];
     var terrain = {};
+    var skyBoxes = [];
 
     function webGLAddObj(meshes){
         ourMeshes = meshes;
@@ -229,56 +214,76 @@
         createObjects();
     }
 
-	var skyBox;
     function createObjects(){
-        var teapot1, teapot2, mesh, skyBoxMesh, eHouse;
-        mesh = ourMeshes.teapot;
-		
+        var teapot1, teapot2, skyBoxMesh, eHouse, skyBox, cloudBox1, cloudBox2, cloudBox3;
+
         teapot1 = {name:"teapot1"};
-        teapot1.meshData = mesh;
+        teapot1.meshData = ourMeshes.teapot;
 		teapot1.radius = 1;
 
         teapot2 = {name:"teapot2"};
-        teapot2.meshData = mesh;
+        teapot2.meshData = ourMeshes.teapot;
 		teapot2.radius = 1;
 
-		skyBoxMesh = ourMeshes.skyBox;
-		
-		skyBox = {name:"skyBox"};
-		skyBox.meshData = skyBoxMesh;
-		skyBox.radius = 5;
+        cloudBox1 = {name:"cloudBox1"};
+        cloudBox1.meshData = ourMeshes.skyBox;
+        cloudBox1.texture = cloudTexture1;
+
+        cloudBox2 = {name:"cloudBox2"};
+        cloudBox2.meshData = ourMeshes.skyBox;
+        cloudBox2.texture = cloudTexture2;
+
+        cloudBox3 = {name:"cloudBox3"};
+        cloudBox3.meshData = ourMeshes.skyBox;
+        cloudBox3.texture = cloudTexture3;
+
+        skyBox = {name:"skyBox"};
+        skyBox.meshData = ourMeshes.skyBox;
+        skyBox.texture = skyTexture;
 		
 		teapot2.radius = 5;
         eHouse = {name: "eHouse"};
         eHouse.meshData = ourMeshes.eHouse;
         eHouse.radius = 1;
+        
+        var posMat = mat4.create();
+        mat4.identity(posMat);
 
-        var skyMat = mat4.create(), teapot1Mat = mat4.create(), teapot2Mat = mat4.create(), eHouseMat = mat4.create();
+        skyBox.positionMatrix = mat4.clone(posMat);
+        cloudBox1.positionMatrix = mat4.clone(posMat);
+        cloudBox2.positionMatrix = mat4.clone(posMat);
+        cloudBox3.positionMatrix = mat4.clone(posMat);
+        cloudBox1.rotVec = {x:1, y:1, z:1};
+        cloudBox1.rotSpeed = 0.0002;
+        cloudBox2.rotVec = {x:1, y:-1, z:-1};
+        cloudBox2.rotSpeed = 0.0004;
+        cloudBox3.rotVec = {x:-1, y:-1, z:1};
+        cloudBox3.rotSpeed = 0.0003;
 
-        mat4.identity(skyMat);
-        mat4.translate(skyMat, skyMat, [ 0, -4, 0]);
-        skyBox.positionMatrix = skyMat;
+        skyBoxes.push(skyBox);
+        skyBoxes.push(cloudBox3);
+        skyBoxes.push(cloudBox2);
+        skyBoxes.push(cloudBox1);
 
-        mat4.identity(teapot1Mat);
-        mat4.translate(teapot1Mat, teapot1Mat, [-10, 0, -40]);
-        mat4.rotate(teapot1Mat, teapot1Mat, degToRad(23.4), [1, 0, -1]);
-        mat4.rotate(teapot1Mat, teapot1Mat, degToRad(teapotAngle), [0, 1, 0]);
-        teapot1.positionMatrix = teapot1Mat;
+        mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [-10, 0, -40]);
+        mat4.rotate(posMat, posMat, degToRad(23.4), [1, 0, -1]);
+        mat4.rotate(posMat, posMat, degToRad(teapotAngle), [0, 1, 0]);
+        teapot1.positionMatrix = mat4.clone(posMat);
         ourObjects.push(teapot1);
 
-        mat4.identity(teapot2Mat);
-        mat4.translate(teapot2Mat, teapot2Mat, [10, 0, -40]);
-        mat4.rotate(teapot2Mat, teapot2Mat, degToRad(-23.4), [1, 0, -1]);
-        mat4.rotate(teapot2Mat, teapot2Mat, degToRad(-teapotAngle), [0, 1, 0]);
-        teapot2.positionMatrix = teapot2Mat;
+        mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [10, 0, -40]);
+        mat4.rotate(posMat, posMat, degToRad(-23.4), [1, 0, -1]);
+        mat4.rotate(posMat, posMat, degToRad(-teapotAngle), [0, 1, 0]);
+        teapot2.positionMatrix = mat4.clone(posMat);
         ourObjects.push(teapot2);
 		
-        mat4.identity(eHouseMat);
-        mat4.translate(eHouseMat, eHouseMat, [-10, 10, -40]);
-        // mat4.rotate(eHouseMat, eHouseMat, degToRad(23.4), [1, 0, -1]);
-        // mat4.rotate(eHouseMat, eHouseMat, degToRad(teapotAngle), [0, 1, 0]);
-        eHouse.positionMatrix = eHouseMat;
-        //ourObjects.push(eHouse);
+        mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [-10, -15, 30]);
+        mat4.rotate(posMat, posMat, degToRad(0), [0, 1, 0]);
+        eHouse.positionMatrix = mat4.clone(posMat);
+        ourObjects.push(eHouse);
     }
 
     var teapotAngle = 180;
@@ -286,9 +291,9 @@
     function drawScene() {
         gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-		if(skyBox != null){
-		      drawSkyBox();
-		}
+
+        drawSkyBoxes();
+
 		gl.useProgram(teapotShader);
         
         var specularHighlights = document.getElementById("specular").checked;
@@ -357,48 +362,70 @@
             drawTerrain();
         }
 
-        if(!once && terrain != null && terrain.isFinished && skyBox != null){
-        console.log(terrain);
-        // console.log(skyBox);
+        if(!once && terrain != null && terrain.isFinished && skyBoxes[0] != null){
+        // console.log(terrain);
+        console.log(skyBoxes[0]);
         once = true;
         }
     }
 
-	function drawSkyBox(){
-		gl.disable(gl.DEPTH_TEST);
+    function drawSkyBoxes(){
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.enable(gl.BLEND);
+        gl.disable(gl.DEPTH_TEST);
+
+        for (var i = 0; i < skyBoxes.length; i++) {
+            if(skyBoxes[i] != null && skyBoxes[i].texture != null){
+                drawSky(skyBoxes[i]);
+            }
+        }
+        gl.disable(gl.BLEND);
+        gl.enable(gl.DEPTH_TEST);
+    }
+
+	function drawSky(model){
 		gl.useProgram(skyBoxShaders);
+
         var camMat = keyboardControls.getCamMatrix();
+        var time = keyboardControls.getElapsedTime();
 		var temp = mat4.clone(camMat);
 		temp[12]=0;
 		temp[13]=-0.5;
 		temp[14]=0;
-
-		gl.uniformMatrix4fv(skyBoxShaders.camMatrix, false, temp);
+        gl.uniformMatrix4fv(skyBoxShaders.camMatrix, false, temp);
         gl.uniformMatrix4fv(skyBoxShaders.frustum, false, frustum);
 
+        if (model.rotVec != null) {
+            mat4.rotate(model.positionMatrix, model.positionMatrix, degToRad(model.rotSpeed * time), [model.rotVec.x, model.rotVec.y, model.rotVec.z]);
+            gl.uniformMatrix4fv(skyBoxShaders.mvMatrixUniform, false, model.positionMatrix);
+        } else{
+            mat4.identity(temp);
+            gl.uniformMatrix4fv(skyBoxShaders.mvMatrixUniform, false, temp);
+        }
+
 		gl.activeTexture(gl.TEXTURE0);
-        if (skyTexture.isFinished) {
-                gl.bindTexture(gl.TEXTURE_2D, skyTexture);
+        if (model.texture.isFinished) {
+                gl.bindTexture(gl.TEXTURE_2D, model.texture);
             } else{
                 gl.bindTexture(gl.TEXTURE_2D, oneByOneTexture);
             }
 		gl.uniform1i(skyBoxShaders.samplerUniform, 0);
 		
-		gl.bindBuffer(gl.ARRAY_BUFFER,  skyBox.meshData.vertexBuffer);
-        gl.vertexAttribPointer(skyBoxShaders.vertexPositionAttribute,  skyBox.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		gl.bindBuffer(gl.ARRAY_BUFFER,  model.meshData.vertexBuffer);
+        gl.vertexAttribPointer(skyBoxShaders.vertexPositionAttribute,  model.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-        if(! skyBox.meshData.textures.length){
+        if(! model.meshData.textures.length){
             gl.disableVertexAttribArray(skyBoxShaders.textureCoordAttribute);
        } else {
             gl.enableVertexAttribArray(skyBoxShaders.textureCoordAttribute);
-            gl.bindBuffer(gl.ARRAY_BUFFER,  skyBox.meshData.textureBuffer);
-            gl.vertexAttribPointer(skyBoxShaders.textureCoordAttribute,  skyBox.meshData.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
+            gl.bindBuffer(gl.ARRAY_BUFFER,  model.meshData.textureBuffer);
+            gl.vertexAttribPointer(skyBoxShaders.textureCoordAttribute,  model.meshData.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
         }
 
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  skyBox.meshData.indexBuffer);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  model.meshData.indexBuffer);
 
-        gl.drawElements(gl.TRIANGLES,  skyBox.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
-		gl.enable(gl.DEPTH_TEST);
+        gl.drawElements(gl.TRIANGLES,  model.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+		
 	}
 	
     function drawModel(model) {
@@ -474,7 +501,7 @@
         OBJ.downloadMeshes({
 			'skyBox': 'objects/skybox.obj',
             'teapot': 'objects/teapot.obj',
-            'eHouse': 'objects/simpleHouse.obj'
+            'eHouse': 'objects/emilHouse3.obj'
         }, webGLAddObj);
     }
 
@@ -483,7 +510,7 @@
         initGL(canvas);
         initTextures();
         initShaders();
-        mat4.perspective(frustum, 45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0);
+        mat4.perspective(frustum, 45, gl.viewportWidth / gl.viewportHeight, 0.1, 200.0);
         loadObjects();
         keyboardControls = new keyboardControls();
 
