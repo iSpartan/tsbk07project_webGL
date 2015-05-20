@@ -309,14 +309,14 @@
         crate.texture = crateTexture;
         crate.radius = 1;
         crate.movable = false;
-        crate.shader = crateShader;
+        crate.shader = teapotShader;
 
         crate2 = {name: "crate2"};
         crate2.meshData = ourMeshes.rectanglePlusMedium;
         crate2.texture = crateTexture;
         crate2.radius = 1;
         crate2.movable = false;
-        crate2.shader = crateShader;
+        crate2.shader = teapotShader;
 
 
         crate3 = {name: "crate3"};
@@ -324,7 +324,7 @@
         crate3.texture = crateTexture;
         crate3.radius = 1;
         crate3.movable = false;
-        crate3.shader = crateShader;
+        crate3.shader = teapotShader;
 
 
         var posMat = mat4.create();
@@ -395,7 +395,7 @@
         drawSkyBoxes();
 
 		drawObjects();
-        
+
         if (terrain != null && terrain.isFinished) {
             drawTerrain();
         }
@@ -473,7 +473,7 @@
     }
 
 	function drawSky(model){
-		gl.useProgram(skyBoxShaders);
+		gl.useProgram(model.shader);
 
         var camMat = keyboardControls.getCamMatrix();
         var time = keyboardControls.getElapsedTime();
@@ -481,15 +481,15 @@
 		temp[12]=0;
 		temp[13]=-0.5;
 		temp[14]=0;
-        gl.uniformMatrix4fv(skyBoxShaders.camMatrix, false, temp);
-        gl.uniformMatrix4fv(skyBoxShaders.frustum, false, frustum);
+        gl.uniformMatrix4fv(model.shader.camMatrix, false, temp);
+        gl.uniformMatrix4fv(model.shader.frustum, false, frustum);
 
         if (model.rotVec != null) {
             mat4.rotate(model.positionMatrix, model.positionMatrix, degToRad(model.rotSpeed * time), [model.rotVec.x, model.rotVec.y, model.rotVec.z]);
-            gl.uniformMatrix4fv(skyBoxShaders.mvMatrixUniform, false, model.positionMatrix);
+            gl.uniformMatrix4fv(model.shader.mvMatrixUniform, false, model.positionMatrix);
         } else{
             mat4.identity(temp);
-            gl.uniformMatrix4fv(skyBoxShaders.mvMatrixUniform, false, temp);
+            gl.uniformMatrix4fv(model.shader.mvMatrixUniform, false, temp);
         }
 
 		gl.activeTexture(gl.TEXTURE0);
@@ -498,17 +498,17 @@
             } else{
                 gl.bindTexture(gl.TEXTURE_2D, oneByOneTexture);
             }
-		gl.uniform1i(skyBoxShaders.samplerUniform, 0);
+		gl.uniform1i(model.shader.samplerUniform, 0);
 		
 		gl.bindBuffer(gl.ARRAY_BUFFER,  model.meshData.vertexBuffer);
-        gl.vertexAttribPointer(skyBoxShaders.vertexPositionAttribute,  model.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        gl.vertexAttribPointer(model.shader.vertexPositionAttribute,  model.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         if(! model.meshData.textures.length){
-            gl.disableVertexAttribArray(skyBoxShaders.textureCoordAttribute);
+            gl.disableVertexAttribArray(model.shader.textureCoordAttribute);
        } else {
-            gl.enableVertexAttribArray(skyBoxShaders.textureCoordAttribute);
+            gl.enableVertexAttribArray(model.shader.textureCoordAttribute);
             gl.bindBuffer(gl.ARRAY_BUFFER,  model.meshData.textureBuffer);
-            gl.vertexAttribPointer(skyBoxShaders.textureCoordAttribute,  model.meshData.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
+            gl.vertexAttribPointer(model.shader.textureCoordAttribute,  model.meshData.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
         }
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  model.meshData.indexBuffer);
@@ -519,7 +519,7 @@
 	
     function drawModel(model) {
         gl.bindBuffer(gl.ARRAY_BUFFER,  model.meshData.vertexBuffer);
-        gl.vertexAttribPointer(teapotShader.vertexPositionAttribute,  model.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        gl.vertexAttribPointer(model.shader.vertexPositionAttribute,  model.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         gl.activeTexture(gl.TEXTURE0);
         if (model.texture.isFinished) {
@@ -527,21 +527,21 @@
             } else{
                 gl.bindTexture(gl.TEXTURE_2D, oneByOneTexture);
             }
-        gl.uniform1i(teapotShader.samplerUniform, 0);
+        gl.uniform1i(model.shader.samplerUniform, 0);
 
         if(! model.meshData.textures.length){
-            gl.disableVertexAttribArray(teapotShader.textureCoordAttribute);
+            gl.disableVertexAttribArray(model.shader.textureCoordAttribute);
         } else {
-            gl.enableVertexAttribArray(teapotShader.textureCoordAttribute);
+            gl.enableVertexAttribArray(model.shader.textureCoordAttribute);
             gl.bindBuffer(gl.ARRAY_BUFFER, model.meshData.textureBuffer);
-            gl.vertexAttribPointer(teapotShader.textureCoordAttribute,  model.meshData.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
+            gl.vertexAttribPointer(model.shader.textureCoordAttribute,  model.meshData.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
         }
 
         gl.bindBuffer(gl.ARRAY_BUFFER,  model.meshData.normalBuffer);
-        gl.vertexAttribPointer(teapotShader.vertexNormalAttribute,  model.meshData.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        gl.vertexAttribPointer(model.shader.vertexNormalAttribute,  model.meshData.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  model.meshData.indexBuffer);
-        setMatrixUniforms(teapotShader, model);
+        setMatrixUniforms(model.shader, model);
         gl.drawElements(gl.TRIANGLES,  model.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
     }
 
