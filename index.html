@@ -21,6 +21,7 @@
     function initGL(canvas) {
         try {
             gl = canvas.getContext("experimental-webgl");
+            gl.getExtension('OES_standard_derivatives');
             gl.viewportWidth = canvas.width;
             gl.viewportHeight = canvas.height;
         } catch (e) {
@@ -42,6 +43,8 @@
 	var skyBoxShaders;
     var terrainShader;
 	var billBoardShaders;
+    var crateShader;
+
 
     function setTeapotShaderProgramVars() {
         gl.useProgram(teapotShader);
@@ -82,6 +85,7 @@
         skyBoxShaders.camMatrix = gl.getUniformLocation(skyBoxShaders, "camMatrix");
         skyBoxShaders.frustum = gl.getUniformLocation(skyBoxShaders, "frustum");
         skyBoxShaders.samplerUniform = gl.getUniformLocation(skyBoxShaders, "uTexSky");
+        skyBoxShaders.mvMatrixUniform = gl.getUniformLocation(skyBoxShaders, "uMVMatrix");
     }
 
     function setTerrainShaderProgramVars() {
@@ -90,14 +94,47 @@
         terrainShader.vertexPositionAttribute = gl.getAttribLocation(terrainShader, "aVertexPosition");
         gl.enableVertexAttribArray(terrainShader.vertexPositionAttribute);
 
-        //terrainShader.vertexNormalAttribute = gl.getAttribLocation(terrainShader, "aVertexNormal");
-        //gl.enableVertexAttribArray(terrainShader.vertexNormalAttribute);
+        terrainShader.vertexNormalAttribute = gl.getAttribLocation(terrainShader, "aVertexNormal");
+        gl.enableVertexAttribArray(terrainShader.vertexNormalAttribute);
 
         terrainShader.vertexColorAttribute = gl.getAttribLocation(terrainShader, "aColorAttrib");
         gl.enableVertexAttribArray(terrainShader.vertexColorAttribute);
 
+        // terrainShader.textureCoordAttribute = gl.getAttribLocation(terrainShader, "aTextureCoord");
+        // gl.enableVertexAttribArray(terrainShader.textureCoordAttribute);
+
+        terrainShader.mvMatrixUniform = gl.getUniformLocation(terrainShader, "uMVMatrix");
         terrainShader.frustum = gl.getUniformLocation(terrainShader, "frustum");
         terrainShader.camMatrix = gl.getUniformLocation(terrainShader, "camMatrix");
+        terrainShader.samplerUniform = gl.getUniformLocation(terrainShader, "uTexBump");
+        terrainShader.nMatrixUniform = gl.getUniformLocation(terrainShader, "uNMatrix");
+    }
+
+    function setCrateShaderProgramVars() {
+        gl.useProgram(crateShader);
+
+        crateShader.vertexPositionAttribute = gl.getAttribLocation(crateShader, "aVertexPosition");
+        gl.enableVertexAttribArray(crateShader.vertexPositionAttribute);
+
+        crateShader.vertexNormalAttribute = gl.getAttribLocation(crateShader, "aVertexNormal");
+        gl.enableVertexAttribArray(crateShader.vertexNormalAttribute);
+
+        crateShader.textureCoordAttribute = gl.getAttribLocation(crateShader, "aTextureCoord");
+        gl.enableVertexAttribArray(crateShader.textureCoordAttribute);
+
+        crateShader.frustum = gl.getUniformLocation(crateShader, "frustum");
+        crateShader.camMatrix = gl.getUniformLocation(crateShader, "camMatrix");
+        crateShader.mvMatrixUniform = gl.getUniformLocation(crateShader, "uMVMatrix");
+        crateShader.nMatrixUniform = gl.getUniformLocation(crateShader, "uNMatrix");
+        crateShader.samplerUniform = gl.getUniformLocation(crateShader, "uSampler");
+        crateShader.materialShininessUniform = gl.getUniformLocation(crateShader, "uMaterialShininess");
+        crateShader.showSpecularHighlightsUniform = gl.getUniformLocation(crateShader, "uShowSpecularHighlights");
+        crateShader.useTexturesUniform = gl.getUniformLocation(crateShader, "uUseTextures");
+        crateShader.useLightingUniform = gl.getUniformLocation(crateShader, "uUseLighting");
+        crateShader.ambientColorUniform = gl.getUniformLocation(crateShader, "uAmbientColor");
+        crateShader.pointLightingLocationUniform = gl.getUniformLocation(crateShader, "uPointLightingLocation");
+        crateShader.pointLightingSpecularColorUniform = gl.getUniformLocation(crateShader, "uPointLightingSpecularColor");
+        crateShader.pointLightingDiffuseColorUniform = gl.getUniformLocation(crateShader, "uPointLightingDiffuseColor");
     }
 	function setBillBoardShaderProgramVars() {
         gl.useProgram(billBoardShaders);
@@ -108,13 +145,13 @@
         //billBoardShaders.vertexNormalAttribute = gl.getAttribLocation(billBoardShaders, "aVertexNormal");
         //gl.enableVertexAttribArray(billBoardShaders.vertexNormalAttribute);
 
-     //   billBoardShaders.textureCoordAttribute = gl.getAttribLocation(billBoardShaders, "aTextureCoord");
-      //  gl.enableVertexAttribArray(billBoardShaders.textureCoordAttribute);
+        billBoardShaders.textureCoordAttribute = gl.getAttribLocation(billBoardShaders, "aTextureCoord");
+        gl.enableVertexAttribArray(billBoardShaders.textureCoordAttribute);
 
 	   billBoardShaders.frustum = gl.getUniformLocation(billBoardShaders, "frustum");
         billBoardShaders.camMatrix = gl.getUniformLocation(billBoardShaders, "camMatrix");
         billBoardShaders.mvMatrixUniform = gl.getUniformLocation(billBoardShaders, "uMVMatrix");
-        //billBoardShaders.samplerUniform = gl.getUniformLocation(billBoardShaders, "uTexBill");
+        billBoardShaders.samplerUniform = gl.getUniformLocation(billBoardShaders, "uTexBill");
 		billBoardShaders.RMatrixUniform = gl.getUniformLocation(billBoardShaders, "uRMatrix");
 
     }
@@ -125,11 +162,12 @@
         terrainShader = utils.addShaderProg(gl, 'terrain.vertex', 'terrain.frag');
 		skyBoxShaders = utils.addShaderProg(gl, 'skyBox.vertex', 'skyBox.frag');
 		billBoardShaders = utils.addShaderProg(gl, 'billBoard.vertex', 'billboard.frag');
-
+        crateShader = utils.addShaderProg(gl, "crateShader.vertex", "crateShader.frag");
         setTeapotShaderProgramVars();
         setTerrainShaderProgramVars();
         setskyBoxShaderProgramVars();
 		setBillBoardShaderProgramVars();
+        setCrateShaderProgramVars();
 
     }
 
@@ -146,8 +184,14 @@
 
     function handleLoadedHeightMap(texture) {
         gl.useProgram(terrainShader);
-        terrain = new TerrainBlock(terrainHeightMap, 256, 256);
+        terrain = new TerrainBlock(terrainHeightMap, 256, 256, 256, 256);
         terrain.isFinished = false;
+
+        var pos = mat4.create();
+        mat4.identity(pos);
+        mat4.translate(pos, pos, [ -80, -15, -80]);
+
+        terrain.positionMatrix = pos;
         terrain.buildVertices();
         terrain.buildIndices();
         terrain.buildBuffers(gl);
@@ -157,47 +201,27 @@
     var galvanizedTexture;
     var earthTexture;
 	var skyTexture;
+    var cloudTexture1;
+    var cloudTexture2;
+    var cloudTexture3;
 	var terrainHeightMap;
     var oneByOneTexture;
-	var billboardTexture;
-	
+	var billBoardTexture;
+    var noiseBumpMap;
+    var crateTexture;
 
     function initTextures() {
 
-        oneByOneTexture = gl.createTexture();
-        oneByOneTexture.isFinished = false;
-        oneByOneTexture.image = new Image();
-        oneByOneTexture.image.onload = function () {
-            handleLoadedTexture(oneByOneTexture)
-        }
-        oneByOneTexture.image.src = "textures/1x1.jpg";
-
-        galvanizedTexture = gl.createTexture();
-        galvanizedTexture.isFinished = false;
-        galvanizedTexture.image = new Image();
-        galvanizedTexture.image.onload = function () {
-            handleLoadedTexture(galvanizedTexture)
-        }
-        galvanizedTexture.image.src = "textures/arroway.de_metal+structure+06_d100_flat.jpg";
-
-        earthTexture = gl.createTexture();
-        earthTexture.isFinished = false;
-        earthTexture.image = new Image();
-        earthTexture.image.onload = function () {
-            handleLoadedTexture(earthTexture)
-        }
-        earthTexture.image.src = "textures/earth.jpg";
-		
-		skyTexture = gl.createTexture();
-        skyTexture.isFinished = false;
-        skyTexture.image = new Image();
-        skyTexture.image.onload = function () {
-            handleLoadedTexture(skyTexture)
-			console.log("image is loaded");
-        }
-
-        skyTexture.image.src = "textures/SkyBox512.jpg";
-
+        oneByOneTexture = setUpTextures(oneByOneTexture, "1x1.jpg");
+        galvanizedTexture = setUpTextures(galvanizedTexture, "arroway.de_metal+structure+06_d100_flat.jpg");
+        noiseBumpMap = setUpTextures(noiseBumpMap, "noise.jpg");
+        earthTexture = setUpTextures(earthTexture, "earth.jpg");
+        skyTexture = setUpTextures(skyTexture, "SkyBox512.jpg");
+        cloudTexture1 = setUpTextures(cloudTexture1, "cloudTex1.png");
+        cloudTexture2 = setUpTextures(cloudTexture2, "cloudTex2.png");
+        cloudTexture3 = setUpTextures(cloudTexture3, "cloudTex3.png");
+        crateTexture = setUpTextures(crateTexture, "crate.gif");
+		billBoardTexture = setUpTextures(billBoardTexture, "noise.jpg");
         terrainHeightMap = new Image();
         terrainHeightMap.onload = function () {
             handleLoadedHeightMap(terrainHeightMap)
@@ -209,15 +233,35 @@
 		
     }
 
-    var frustum = mat4.create();
+    function setUpTextures(textureVarName, picture){
+        textureVarName = gl.createTexture();
+        textureVarName.isFinished = false;
+        textureVarName.image = new Image();
+        textureVarName.image.onload = function () {
+            handleLoadedTexture(textureVarName)
+        }
+        textureVarName.image.src = "textures/"+picture;
+        return textureVarName;
+    }
 
-    function setMatrixUniforms(model) {
-        gl.uniformMatrix4fv(teapotShader.mvMatrixUniform, false, model.positionMatrix);
+    var frustum = mat4.create();
+	
+    function setMatrixUniforms(shader, model) {
+        if (model.movable) {
+            var temp = keyboardControls.getObjPos();
+            // console.log(temp)
+            mat4.multiply(temp, model.positionMatrix, temp);
+            // console.log(temp)
+            gl.uniformMatrix4fv(shader.mvMatrixUniform, false, temp);
+        }else{
+            gl.uniformMatrix4fv(shader.mvMatrixUniform, false, model.positionMatrix);
+        }
+
         var normalMatrix = mat3.create();
         mat3.fromMat4(normalMatrix, model.positionMatrix);
         mat3.invert(normalMatrix, normalMatrix);
         mat3.transpose(normalMatrix, normalMatrix);
-        gl.uniformMatrix3fv(teapotShader.nMatrixUniform, false, normalMatrix);
+        gl.uniformMatrix3fv(shader.nMatrixUniform, false, normalMatrix);
     }
 
     function degToRad(degrees) {
@@ -227,11 +271,14 @@
     var ourMeshes = {};
     var ourObjects = [];
     var terrain = {};
+    var skyBoxes = [];
 
     function webGLAddObj(meshes){
         ourMeshes = meshes;
         OBJ.initMeshBuffers(gl, ourMeshes.teapot);
 		OBJ.initMeshBuffers(gl, ourMeshes.skyBox);
+        OBJ.initMeshBuffers(gl, ourMeshes.cubePlusMedium);
+        OBJ.initMeshBuffers(gl, ourMeshes.rectanglePlusMedium);
         OBJ.initMeshBuffers(gl, ourMeshes.eHouse);
 		OBJ.initMeshBuffers(gl, ourMeshes.billBoard);
 		OBJ.initMeshBuffers(gl, ourMeshes.outerTerrain);
@@ -240,81 +287,156 @@
 		
     }
 
-	var skyBox;
 	var outerTerrain;
     function createObjects(){
-        var teapot1, teapot2, mesh, skyBoxMesh, eHouse, outerTerrainMesh;
-        mesh = ourMeshes.teapot;
-		
+        var teapot1, teapot2, eHouse, skyBox, cloudBox1, cloudBox2, cloudBox3, crate, crate2, crate3;
+
         teapot1 = {name:"teapot1"};
-        teapot1.meshData = mesh;
-		teapot1.radius = 1;
+        teapot1.meshData = ourMeshes.teapot;
+        teapot1.texture = galvanizedTexture;
+		teapot1.radius = 10;
+        teapot1.movable = false;
+        teapot1.shader = teapotShader;
 
         teapot2 = {name:"teapot2"};
-        teapot2.meshData = mesh;
-		teapot2.radius = 1;
+        teapot2.meshData = ourMeshes.teapot;
+        teapot2.texture = earthTexture;
+		teapot2.radius = 10;
+        teapot2.movable = false;
+        teapot2.shader = teapotShader;
 
-		skyBoxMesh = ourMeshes.skyBox;
-		
-		skyBox = {name:"skyBox"};
-		skyBox.meshData = skyBoxMesh;
-		skyBox.radius = 5;
-		
-		teapot2.radius = 5;
+        cloudBox1 = {name:"cloudBox1"};
+        cloudBox1.meshData = ourMeshes.skyBox;
+        cloudBox1.texture = cloudTexture1;
+        cloudBox1.movable = false;
+        cloudBox1.shader = skyBoxShaders;
+
+        cloudBox2 = {name:"cloudBox2"};
+        cloudBox2.meshData = ourMeshes.skyBox;
+        cloudBox2.texture = cloudTexture2;
+        cloudBox2.movable = false;
+        cloudBox2.shader = skyBoxShaders;
+
+        cloudBox3 = {name:"cloudBox3"};
+        cloudBox3.meshData = ourMeshes.skyBox;
+        cloudBox3.texture = cloudTexture3;
+        cloudBox3.movable = false;
+        cloudBox3.shader = skyBoxShaders;
+
+        skyBox = {name:"skyBox"};
+        skyBox.meshData = ourMeshes.skyBox;
+        skyBox.texture = skyTexture;
+        skyBox.movable = false;
+        skyBox.shader = skyBoxShaders;
+
         eHouse = {name: "eHouse"};
         eHouse.meshData = ourMeshes.eHouse;
+        eHouse.texture = galvanizedTexture;
         eHouse.radius = 1;
-		
-		outerTerrainMesh = ourMeshes.outerTerrain;
+
 		outerTerrain = {name:"outerTerrain"};
-		outerTerrain.meshData = outerTerrainMesh;
+		outerTerrain.meshData = ourMeshes.outerTerrain;
 		outerTerrain.radius = 1;
 
+        eHouse.movable = false;
+        eHouse.shader = teapotShader;
 
-        var skyMat = mat4.create() ,teapot1Mat = mat4.create(), teapot2Mat = mat4.create(), eHouseMat = mat4.create(), outerTerrainMat = mat4.create();
+        crate = {name: "crate"};
+        crate.meshData = ourMeshes.cubePlusMedium;
+        crate.texture = crateTexture;
+        crate.radius = 1;
+        crate.movable = false;
+        crate.shader = crateShader;
 
-        mat4.identity(skyMat);
-        mat4.translate(skyMat, skyMat, [ 0, -4, 0]);
-        skyBox.positionMatrix = skyMat;
+        crate2 = {name: "crate2"};
+        crate2.meshData = ourMeshes.rectanglePlusMedium;
+        crate2.texture = crateTexture;
+        crate2.radius = 1;
+        crate2.movable = false;
+        crate2.shader = crateShader;
 
-        mat4.identity(teapot1Mat);
-        mat4.translate(teapot1Mat, teapot1Mat, [-10, 0, -40]);
-        mat4.rotate(teapot1Mat, teapot1Mat, degToRad(23.4), [1, 0, -1]);
-        mat4.rotate(teapot1Mat, teapot1Mat, degToRad(teapotAngle), [0, 1, 0]);
-        teapot1.positionMatrix = teapot1Mat;
+
+        crate3 = {name: "crate3"};
+        crate3.meshData = ourMeshes.rectanglePlusMedium;
+        crate3.texture = crateTexture;
+        crate3.radius = 1;
+        crate3.movable = false;
+        crate3.shader = crateShader;
+
+
+        var posMat = mat4.create();
+        mat4.identity(posMat);
+
+        skyBox.positionMatrix = mat4.clone(posMat);
+        cloudBox1.positionMatrix = mat4.clone(posMat);
+        cloudBox2.positionMatrix = mat4.clone(posMat);
+        cloudBox3.positionMatrix = mat4.clone(posMat);
+        cloudBox1.rotVec = {x:1, y:1, z:1};
+        cloudBox1.rotSpeed = 0.0002;
+        cloudBox2.rotVec = {x:1, y:-1, z:-1};
+        cloudBox2.rotSpeed = 0.0004;
+        cloudBox3.rotVec = {x:-1, y:-1, z:1};
+        cloudBox3.rotSpeed = 0.0003;
+
+        skyBoxes.push(skyBox);
+        skyBoxes.push(cloudBox3);
+        skyBoxes.push(cloudBox2);
+        skyBoxes.push(cloudBox1);
+
+        mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [-10, 0, -40]);
+        mat4.rotate(posMat, posMat, degToRad(23.4), [1, 0, -1]);
+        mat4.rotate(posMat, posMat, degToRad(teapotAngle), [0, 1, 0]);
+        teapot1.positionMatrix = mat4.clone(posMat);
         ourObjects.push(teapot1);
 
-        mat4.identity(teapot2Mat);
-        mat4.translate(teapot2Mat, teapot2Mat, [10, 0, -40]);
-        mat4.rotate(teapot2Mat, teapot2Mat, degToRad(-23.4), [1, 0, -1]);
-        mat4.rotate(teapot2Mat, teapot2Mat, degToRad(-teapotAngle), [0, 1, 0]);
-        teapot2.positionMatrix = teapot2Mat;
+        mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [10, 0, -40]);
+        mat4.rotate(posMat, posMat, degToRad(-23.4), [1, 0, -1]);
+        mat4.rotate(posMat, posMat, degToRad(-teapotAngle), [0, 1, 0]);
+        teapot2.positionMatrix = mat4.clone(posMat);
         ourObjects.push(teapot2);
-		
-        mat4.identity(eHouseMat);
-        mat4.translate(eHouseMat, eHouseMat, [-10, 10, -40]);
-        // mat4.rotate(eHouseMat, eHouseMat, degToRad(23.4), [1, 0, -1]);
-        // mat4.rotate(eHouseMat, eHouseMat, degToRad(teapotAngle), [0, 1, 0]);
-        eHouse.positionMatrix = eHouseMat;
-        //ourObjects.push(eHouse);
-		
-		mat4.identity(outerTerrainMat);
-        mat4.translate(outerTerrainMat, outerTerrainMat, [-500, -1, 500]);
-        // mat4.rotate(eHouseMat, eHouseMat, degToRad(23.4), [1, 0, -1]);
-        // mat4.rotate(eHouseMat, eHouseMat, degToRad(teapotAngle), [0, 1, 0]);
-        outerTerrain.positionMatrix = outerTerrainMat;
-        //ourObjects.push(eHouse);
+	
+		mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [-500, -1, 500]);
+        outerTerrain.positionMatrix = mat4.clone(posMat);
+    
+        mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [-10, -15, 30]);
+        mat4.rotate(posMat, posMat, degToRad(0), [0, 1, 0]);
+        eHouse.positionMatrix = mat4.clone(posMat);
+        ourObjects.push(eHouse);
+
+        mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [-14.9331, -13.3361, 19.3915]);
+        mat4.rotate(posMat, posMat, degToRad(0), [0, 1, 0]);
+        crate.positionMatrix = mat4.clone(posMat);
+        ourObjects.push(crate);
+
+        mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [16.4274, -13.3361, 21.4712]);
+        mat4.rotate(posMat, posMat, degToRad(90), [0, 1, 0]);
+        crate2.positionMatrix = mat4.clone(posMat);
+        ourObjects.push(crate2);
+
+        mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [-5.2840, -11.3361, 9.5395]);
+        mat4.rotate(posMat, posMat, degToRad(180), [1, 1, 0]);
+        mat4.rotate(posMat, posMat, 1.06, [1, 0, 0]);
+        crate3.positionMatrix = mat4.clone(posMat);
+        ourObjects.push(crate3);
+		//createBillboard();
     }
+	
 	var billBoard;
 	function createBillboard(){
-			var billBoardMesh;
-		billBoardMesh = ourMeshes.billBoard;
 		var billPos = mat4.create();
 		mat4.identity(billPos);
 		mat4.translate(billPos, billPos, [-0, 0, -0]);
 		billBoard = {name:"billBoard"};
-        billBoard.meshData = billBoardMesh;
+        billBoard.meshData = ourMeshes.billBoard;
 		billBoard.positionMatrix = billPos;
+		billBoard.texture = billBoardTexture;
 	}
 
     var teapotAngle = 180;
@@ -322,12 +444,26 @@
     function drawScene() {
         gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-		if(skyBox != null){
-		      drawSkyBox();
-		}
-		
-        drawBillboard(billBoard);
-		gl.useProgram(teapotShader);
+
+        drawSkyBoxes();
+		drawObjects();
+		drawBillboard(billBoard);
+        
+        if (terrain != null && terrain.isFinished) {
+            drawTerrain();
+        }
+
+        if(!once && terrain != null && terrain.isFinished && skyBoxes[0] != null){
+        // console.log(terrain);
+        // console.log(skyBoxes[0]);
+		console.log(billBoard)
+        once = true;
+        }
+    }
+
+    function drawObjects(){
+        gl.useProgram(teapotShader);
+
         var specularHighlights = document.getElementById("specular").checked;
         gl.uniform1i(teapotShader.showSpecularHighlightsUniform, specularHighlights);
 
@@ -366,22 +502,6 @@
         var texture = document.getElementById("texture").value;
         gl.uniform1i(teapotShader.useTexturesUniform, texture != "none");
 
-        gl.activeTexture(gl.TEXTURE0);
-        if (texture == "earth") {
-            if (earthTexture.isFinished) {
-                gl.bindTexture(gl.TEXTURE_2D, earthTexture);
-            } else{
-                gl.bindTexture(gl.TEXTURE_2D, oneByOneTexture);
-            }
-        } else if (texture == "galvanized") {
-            if (galvanizedTexture.isFinished) {
-           gl.bindTexture(gl.TEXTURE_2D, galvanizedTexture);
-            } else{
-                gl.bindTexture(gl.TEXTURE_2D, oneByOneTexture);
-            }
-        }
-        gl.uniform1i(teapotShader.samplerUniform, 0);
-
         gl.uniform1f(teapotShader.materialShininessUniform, parseFloat(document.getElementById("shininess").value));
 		var camMat = keyboardControls.getCamMatrix();	
 		var temp = mat4.create();
@@ -392,16 +512,20 @@
         for (var i = 0; i < ourObjects.length; i++) {
            drawModel(ourObjects[i]);
         }
-        if (terrain != null && terrain.isFinished) {
-            //drawModel(outerTerrain);
-			drawTerrain();
-        }
+    }
 
-        if(!once && terrain != null && terrain.isFinished && skyBox != null){
-        // console.log(terrain);
-       // console.log(skyBox);
-        once = true;
+    function drawSkyBoxes(){
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.enable(gl.BLEND);
+        gl.disable(gl.DEPTH_TEST);
+
+        for (var i = 0; i < skyBoxes.length; i++) {
+            if(skyBoxes[i] != null && skyBoxes[i].texture != null){
+                drawSky(skyBoxes[i]);
+            }
         }
+        gl.disable(gl.BLEND);
+        gl.enable(gl.DEPTH_TEST);
     }
 	function getModelDirection(posMatrix, camMatrix){
         var pos = mat4.create();
@@ -432,27 +556,27 @@
 		rotMat[6] = -sina;
 		rotMat[8] = cosa;
 		
-	/**	gl.activeTexture(gl.TEXTURE0);
+		gl.activeTexture(gl.TEXTURE0);
         if (skyTexture.isFinished) {
                 gl.bindTexture(gl.TEXTURE_2D, skyTexture);
             } else{
                 gl.bindTexture(gl.TEXTURE_2D, oneByOneTexture);
             }
 		gl.uniform1i(billBoardShaders.samplerUniform, 0);
-				**/
+				
 		gl.bindBuffer(gl.ARRAY_BUFFER,  board.meshData.vertexBuffer);
         gl.vertexAttribPointer(billBoardShaders.vertexPositionAttribute,  board.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
 		gl.uniformMatrix4fv(billBoardShaders.camMatrix, false, camMat);
 		gl.uniformMatrix4fv(billBoardShaders.frustum, false, frustum);
 
-       /** if(! board.meshData.textures.length){
+        if(! board.meshData.textures.length){
             gl.disableVertexAttribArray(billBoardShaders.textureCoordAttribute);
         } else {
             gl.enableVertexAttribArray(billBoardShaders.textureCoordAttribute);
             gl.bindBuffer(gl.ARRAY_BUFFER, board.meshData.textureBuffer);
             gl.vertexAttribPointer(billBoardShaders.textureCoordAttribute,  board.meshData.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
         }
-		**/
+		
 
     //    gl.bindBuffer(gl.ARRAY_BUFFER,  board.meshData.normalBuffer);
   //      gl.vertexAttribPointer(billBoardShaders.vertexNormalAttribute,  board.meshData.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
@@ -472,45 +596,61 @@
 		
 		
 	}
-	function drawSkyBox(){
-		gl.disable(gl.DEPTH_TEST);
+
+	function drawSky(model){
 		gl.useProgram(skyBoxShaders);
+
         var camMat = keyboardControls.getCamMatrix();
+        var time = keyboardControls.getElapsedTime();
 		var temp = mat4.clone(camMat);
 		temp[12]=0;
 		temp[13]=-0.5;
 		temp[14]=0;
-
-		gl.uniformMatrix4fv(skyBoxShaders.camMatrix, false, temp);
+        gl.uniformMatrix4fv(skyBoxShaders.camMatrix, false, temp);
         gl.uniformMatrix4fv(skyBoxShaders.frustum, false, frustum);
 
+        if (model.rotVec != null) {
+            mat4.rotate(model.positionMatrix, model.positionMatrix, degToRad(model.rotSpeed * time), [model.rotVec.x, model.rotVec.y, model.rotVec.z]);
+            gl.uniformMatrix4fv(skyBoxShaders.mvMatrixUniform, false, model.positionMatrix);
+        } else{
+            mat4.identity(temp);
+            gl.uniformMatrix4fv(skyBoxShaders.mvMatrixUniform, false, temp);
+        }
+
 		gl.activeTexture(gl.TEXTURE0);
-        if (skyTexture.isFinished) {
-                gl.bindTexture(gl.TEXTURE_2D, skyTexture);
+        if (model.texture.isFinished) {
+                gl.bindTexture(gl.TEXTURE_2D, model.texture);
             } else{
                 gl.bindTexture(gl.TEXTURE_2D, oneByOneTexture);
             }
 		gl.uniform1i(skyBoxShaders.samplerUniform, 0);
 		
-		gl.bindBuffer(gl.ARRAY_BUFFER,  skyBox.meshData.vertexBuffer);
-        gl.vertexAttribPointer(skyBoxShaders.vertexPositionAttribute,  skyBox.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		gl.bindBuffer(gl.ARRAY_BUFFER,  model.meshData.vertexBuffer);
+        gl.vertexAttribPointer(skyBoxShaders.vertexPositionAttribute,  model.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-        if(! skyBox.meshData.textures.length){
+        if(! model.meshData.textures.length){
             gl.disableVertexAttribArray(skyBoxShaders.textureCoordAttribute);
        } else {
             gl.enableVertexAttribArray(skyBoxShaders.textureCoordAttribute);
-            gl.bindBuffer(gl.ARRAY_BUFFER,  skyBox.meshData.textureBuffer);
-            gl.vertexAttribPointer(skyBoxShaders.textureCoordAttribute,  skyBox.meshData.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
+            gl.bindBuffer(gl.ARRAY_BUFFER,  model.meshData.textureBuffer);
+            gl.vertexAttribPointer(skyBoxShaders.textureCoordAttribute,  model.meshData.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
         }
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  model.meshData.indexBuffer);
 
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  skyBox.meshData.indexBuffer);
-        gl.drawElements(gl.TRIANGLES,  skyBox.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
-		gl.enable(gl.DEPTH_TEST);
+        gl.drawElements(gl.TRIANGLES,  model.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 	}
 	
     function drawModel(model) {
         gl.bindBuffer(gl.ARRAY_BUFFER,  model.meshData.vertexBuffer);
         gl.vertexAttribPointer(teapotShader.vertexPositionAttribute,  model.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        gl.activeTexture(gl.TEXTURE0);
+        if (model.texture.isFinished) {
+                gl.bindTexture(gl.TEXTURE_2D, model.texture);
+            } else{
+                gl.bindTexture(gl.TEXTURE_2D, oneByOneTexture);
+            }
+        gl.uniform1i(teapotShader.samplerUniform, 0);
 
         if(! model.meshData.textures.length){
             gl.disableVertexAttribArray(teapotShader.textureCoordAttribute);
@@ -524,7 +664,7 @@
         gl.vertexAttribPointer(teapotShader.vertexNormalAttribute,  model.meshData.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  model.meshData.indexBuffer);
-        setMatrixUniforms(model);
+        setMatrixUniforms(teapotShader, model);
         gl.drawElements(gl.TRIANGLES,  model.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
     }
 
@@ -536,17 +676,27 @@
         gl.uniformMatrix4fv(terrainShader.frustum, false, frustum);
         // now to render the mesh
 
+        gl.activeTexture(gl.TEXTURE0);
+        if (noiseBumpMap.isFinished) {
+                gl.bindTexture(gl.TEXTURE_2D, noiseBumpMap);
+            } else{
+                gl.bindTexture(gl.TEXTURE_2D, oneByOneTexture);
+        }
+        gl.uniform1i(terrainShader.samplerUniform, 0);
+
         gl.bindBuffer(gl.ARRAY_BUFFER,  terrain.vertexBuffer);
         gl.vertexAttribPointer(terrainShader.vertexPositionAttribute,  terrain.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         gl.bindBuffer(gl.ARRAY_BUFFER,  terrain.colorBuffer);
         gl.vertexAttribPointer(terrainShader.vertexColorAttribute,  terrain.colorBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-        //gl.bindBuffer(gl.ARRAY_BUFFER,  terrain.normalBuffer);
-        //gl.vertexAttribPointer(terrainShader.vertexNormalAttribute,  terrain.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER,  terrain.normalBuffer);
+        gl.vertexAttribPointer(terrainShader.vertexNormalAttribute,  terrain.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  terrain.indexBuffer);
-        //setMatrixUniforms(terrain);
+
+        // gl.uniformMatrix4fv(terrainShader.mvMatrixUniform, false, terrain.positionMatrix);
+        setMatrixUniforms(terrainShader, terrain);
 
         gl.drawElements(gl.TRIANGLES,  terrain.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
     }
@@ -563,11 +713,12 @@
     function loadObjects(){
         OBJ.downloadMeshes({
 			'skyBox': 'objects/skybox.obj',
+            'cubePlusMedium': 'objects/cubePlusMedium.obj',
+            'rectanglePlusMedium': 'objects/rectanglePlusMedium.obj',
             'teapot': 'objects/teapot.obj',
-            'eHouse': 'objects/simpleHouse.obj',
+            'eHouse': 'objects/emilHouse3.obj',
 			'billBoard': 'objects/openbox.obj',
 			'outerTerrain': 'objects/outerTerrain.obj'
-			
         }, webGLAddObj);
     }
 
@@ -576,7 +727,7 @@
         initGL(canvas);
         initTextures();
         initShaders();
-        mat4.perspective(frustum, 45, gl.viewportWidth / gl.viewportHeight, 0.1, 1000.0);
+        mat4.perspective(frustum, 45, gl.viewportWidth / gl.viewportHeight, 0.1, 200.0);
         loadObjects();
         keyboardControls = new keyboardControls();
 

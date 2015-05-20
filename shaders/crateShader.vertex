@@ -1,22 +1,19 @@
     attribute vec3 aVertexPosition;
     attribute vec3 aVertexNormal;
-    attribute vec3 aColorAttrib;
-    //attribute vec2 aTextureCoord;
+    attribute vec2 aTextureCoord;
 
     uniform mat4 uMVMatrix;
     uniform mat4 camMatrix;
     uniform mat4 frustum;
     uniform mat3 uNMatrix;
 
-    varying vec3 vColorAttrib;
+    varying vec2 vTextureCoord;
     varying vec3 vTransformedNormal;
     varying vec4 vPosition;
-    //varying vec2 vTexCoord;
 
     void main(void) {
         vPosition = uMVMatrix * vec4(aVertexPosition, 1.0);
-        gl_Position = frustum * camMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
-        vColorAttrib = aColorAttrib;
-        //vTexCoord = aTextureCoord;
+        gl_Position = frustum * camMatrix * vPosition;
+        vTextureCoord = aTextureCoord;
         vTransformedNormal = uNMatrix * aVertexNormal;
     }
