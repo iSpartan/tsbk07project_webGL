@@ -1,0 +1,18 @@
+    attribute vec3 aVertexPosition;
+    //attribute vec2 aTextureCoord;
+
+    uniform mat4 uMVMatrix;
+    uniform mat4 camMatrix;
+	uniform mat4 uRMatrix;
+	uniform mat4 frustum;
+
+  //  varying vec2 vTexCoord;
+
+    void main(void) {
+	//vPosition = uMVMatrix * vec4(aVertexPosition, 1.0);
+      //  gl_Position = frustum * camMatrix * vPosition;
+	
+        gl_Position = frustum  *camMatrix *uRMatrix*uMVMatrix * vec4(aVertexPosition, 1.0);
+		//gl_Position = vec4(aVertexPosition, 1.0);
+       // vTexCoord = aTextureCoord;
+    }
