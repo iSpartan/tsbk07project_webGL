@@ -306,7 +306,7 @@ var keyboardControls = (function () {
                 mat4.translate(this.camMove, this.camMove, [this.objMatX, this.objMatY, this.objMatZ]);
                 mat4.multiply(this.objPos, this.camMove, this.objPos);
             }
-            
+
             if (this.objRotY != 0){
             mat4.identity(this.camMove);
                 mat4.rotate(this.camMove, this.camMove, degToRad(-this.objRotY), [0, 1, 0]);

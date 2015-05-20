@@ -8,7 +8,6 @@
 
     uniform bool uShowSpecularHighlights;
     uniform bool uUseLighting;
-    uniform bool uUseTextures;
 
     uniform vec3 uAmbientColor;
 
@@ -42,10 +41,6 @@
         }
 
         vec4 fragmentColor;
-        if (uUseTextures) {
-            fragmentColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
-        } else {
-            fragmentColor = vec4(1.0, 1.0, 1.0, 1.0);
-        }
+        fragmentColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
         gl_FragColor = vec4(fragmentColor.rgb * lightWeighting, fragmentColor.a);
     }
