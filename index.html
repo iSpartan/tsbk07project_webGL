@@ -496,7 +496,7 @@
 		var newPos = mat4.create();
 		mat4.identity(billPos);
 		mat4.translate(billPos, billPos, [0, -0, 0]);
-		for (var i = 0; i < 20; i++) {
+		for (var i = 0; i < 10; i++) {
 			newPos = mat4.clone(billPos);
 			var random = Math.random() *50;
 			if(Math.random < 0.5){
@@ -515,6 +515,44 @@
 			billBoard.shader = billBoardShaders;
 			billBoards.push(billBoard);
         }
+		
+			for (var i = 0; i < 10; i++) {
+			newPos = mat4.clone(billPos);
+			var random = Math.random() *50;
+			if(Math.random < 0.5){
+			mat4.translate(newPos, newPos, [i*10, 0,200+random]);
+			}else{
+			mat4.translate(newPos, newPos, [i*10, 0,200-random]);
+			}
+			 
+		   var billBoard = {name:"billBoard"};
+		  
+			billBoard.meshData = ourMeshes.billBoard;
+			billBoard.positionMatrix = newPos;
+			billBoard.texture = billBoardTexture;
+			billBoard.shader = billBoardShaders;
+			billBoards.push(billBoard);
+        }
+			for (var i = 0; i < 10; i++) {
+			newPos = mat4.clone(billPos);
+			var random = Math.random() *50;
+			if(Math.random < 0.5){
+			mat4.translate(newPos, newPos, [-200+random, 0,i*10]);
+			}else{
+			mat4.translate(newPos, newPos, [-200-random, 0,i*10]);
+			}
+			 mat4.rotate(newPos, newPos, degToRad(-90), [0, 1, 0]);
+			
+		  // newPos = mat4.clone(billPos);
+		   var billBoard = {name:"billBoard"};
+		  
+			billBoard.meshData = ourMeshes.billBoard;
+			billBoard.positionMatrix = newPos;
+			billBoard.texture = billBoardTexture;
+			billBoard.shader = billBoardShaders;
+			billBoards.push(billBoard);
+        }
+		
 		
 	}
 
@@ -602,75 +640,40 @@
        gl.enable(gl.DEPTH_TEST);
 		
 	}
-	var a = 0;
+	
 	function drawBillboard(board){
-		a = a+0.1;
-		var cosa, sina, rotMat, a;
+		 var totRot;
         var camMat = keyboardControls.getCamMatrix();
 		var directionFromModel = getModelDirection(board.positionMatrix, camMat);
-		var normalMatrix = mat3.create();
+		
 		var total = mat4.create();
 		//total = mat4.multiply(total, camMat, board.positionMatrix);
-        mat3.fromMat4(normalMatrix, board.positionMatrix);
-        mat3.invert(normalMatrix, normalMatrix);
-        mat3.transpose(normalMatrix, normalMatrix);
-		
+ 
 		directionFromModel[1] = 0; //zero the y
 		
-		var cosa2 = directionFromModel[0];
-		var sina2 = directionFromModel[2];
-		//console.log(camMat);
-		var inverse = mat4.create();
-		mat4.invert(inverse, camMat);
-		var vec = mat4.create();
-		mat4.identity(vec);
 		
-		vec[0] = 0;
-		vec[5] = 0;
-		vec[10] = -1;
+		var cosa = directionFromModel[2];
+		var direction = vec3.create();
+		var lookAt = vec3.create();
+		lookAt[2] = -1;
+		vec3.cross(direction, directionFromModel,lookAt);
 		
-		vec[15] = 0;
+		var rotation = Math.acos(cosa)*180/Math.PI;
+		rotation = degToRad(rotation);
+		var totRot = mat4.create();
+		mat4.identity(totRot);
 		
-		var temp = mat4.create();
-		mat4.multiply(temp, inverse, vec );
+		if(direction[1] < 0 ){
+		console.log("rot was: "+rotation);
+		rotation = Math.PI - rotation;
+		console.log("and is: "+rotation);
+		}
 		
-		cosa = temp[10];
-		sina = temp[8];
-		//console.log("cos: "+cosa+ " "+cosa2);
-		
-		//console.log("sin: "+sina+ " "+sina2);
-		//a = Math.acos(cosa);
-		//b = Math.asin(sina);
-		//console.log("cosa "+cosa+"sina "+sina);
-		rotMat = mat4.create();
-		mat4.identity(rotMat);
-		
-		rotMat[0] = cosa2;
-		rotMat[2] = sina2;
-		rotMat[8] = -sina2;
-		rotMat[10] = cosa2;
-		//var alfa = Math.PI/4
-		//rotMat[0] = Math.cos(alfa);
-		//rotMat[2] = -Math.sin(alfa);
-		//rotMat[8] = Math.sin(alfa);
-		//rotMat[10] = Math.cos(alfa);
-		
-		//var totMat = mat4.create(); 
-		//mat4.multiply(totMat,rotMat, inverse);
-		
-		//console.log(rotMat);
-		
-		
-		//mat4.multiply(totMat,totMat,camMat);
-		//console.log(totMat);
-		//console.log(totMat[2]);
-		//console.log(totMat[8]);
-		
-		
-		
-		
-		//console.log(board.positionMatrix); 
-		//mat4.multiply(rotMat,rotMat, board.positionMatrix);
+		console.log("should rotate "+rotation);
+		totRot[0] = Math.cos(rotation);
+		totRot[2] = -Math.sin(rotation);
+		totRot[8]= Math.sin(rotation);;
+		totRot[10] = Math.cos(rotation);
 		
 		gl.activeTexture(gl.TEXTURE0);
         if (board.texture.isFinished) {
@@ -682,8 +685,6 @@
 				
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-		//gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-       // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 				
 		gl.bindBuffer(gl.ARRAY_BUFFER,  board.meshData.vertexBuffer);
         gl.vertexAttribPointer(board.shader.vertexPositionAttribute,  board.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
@@ -697,17 +698,11 @@
             gl.bindBuffer(gl.ARRAY_BUFFER, board.meshData.textureBuffer);
             gl.vertexAttribPointer(board.shader.textureCoordAttribute,  board.meshData.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
         }
-
-    //    gl.bindBuffer(gl.ARRAY_BUFFER,  board.meshData.normalBuffer);
-  //      gl.vertexAttribPointer(board.shader.vertexNormalAttribute,  board.meshData.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  board.meshData.indexBuffer);
         
-		//gl.uniformMatrix4fv(board.shader.mvMatrixUniform, false, board.positionMatrix);
 		gl.uniformMatrix4fv(board.shader.mvMatrixUniform, false, board.positionMatrix);
    
-    //    gl.uniformMatrix3fv(board.shader.nMatrixUniform, false, normalMatrix);
-		gl.uniformMatrix4fv(board.shader.RMatrixUniform, false, rotMat);
+		gl.uniformMatrix4fv(board.shader.RMatrixUniform, false, totRot);
         gl.drawElements(gl.TRIANGLES,  board.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 
 	}
