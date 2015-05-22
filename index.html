@@ -488,6 +488,7 @@
 			billBoard.meshData = ourMeshes.billBoard;
 			billBoard.positionMatrix = newPos;
 			billBoard.texture = billBoardTexture;
+			billBoard.shader = billBoardShaders;
 			billBoards.push(billBoard);
         }
 		
@@ -499,9 +500,7 @@
         gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         drawSkyBoxes();
-		for (var i = 0; i < billBoards.length; i++) {
-           drawBillboard(billBoards[i]);
-        }
+		drawBillBoards();
 		drawObjects();
 		    
         if (terrain != null && terrain.isFinished) {
@@ -559,17 +558,20 @@
         posVec[2] = pos[14]/length;
         return posVec;
     }
-
-	function drawBillboard(board){
+	function drawBillBoards(){
 		gl.useProgram(billBoardShaders);
-		
 		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         gl.enable(gl.BLEND);
         gl.disable(gl.DEPTH_TEST);
+		for (var i = 0; i < billBoards.length; i++) {
+           drawBillboard(billBoards[i]);
+        }
+		gl.disable(gl.BLEND);
+        gl.enable(gl.DEPTH_TEST);
+		
+	}
 
-     
-		
-		
+	function drawBillboard(board){
 		var cosa, sina, rotMat, a;
         var camMat = keyboardControls.getCamMatrix();
 		var directionFromModel = getModelDirection(board.positionMatrix, camMat);
@@ -603,35 +605,32 @@
             } else{
                 gl.bindTexture(gl.TEXTURE_2D, oneByOneTexture);
             }
-		gl.uniform1i(billBoardShaders.samplerUniform, 0);
+		gl.uniform1i(board.shader.samplerUniform, 0);
 				
 		gl.bindBuffer(gl.ARRAY_BUFFER,  board.meshData.vertexBuffer);
-        gl.vertexAttribPointer(billBoardShaders.vertexPositionAttribute,  board.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
-		gl.uniformMatrix4fv(billBoardShaders.camMatrix, false, camMat);
-		gl.uniformMatrix4fv(billBoardShaders.frustum, false, frustum);
+        gl.vertexAttribPointer(board.shader.vertexPositionAttribute,  board.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		gl.uniformMatrix4fv(board.shader.camMatrix, false, camMat);
+		gl.uniformMatrix4fv(board.shader.frustum, false, frustum);
 
         if(! board.meshData.textures.length){
-            gl.disableVertexAttribArray(billBoardShaders.textureCoordAttribute);
+            gl.disableVertexAttribArray(board.shader.textureCoordAttribute);
         } else {
-            gl.enableVertexAttribArray(billBoardShaders.textureCoordAttribute);
+            gl.enableVertexAttribArray(board.shader.textureCoordAttribute);
             gl.bindBuffer(gl.ARRAY_BUFFER, board.meshData.textureBuffer);
-            gl.vertexAttribPointer(billBoardShaders.textureCoordAttribute,  board.meshData.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
+            gl.vertexAttribPointer(board.shader.textureCoordAttribute,  board.meshData.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
         }
 
     //    gl.bindBuffer(gl.ARRAY_BUFFER,  board.meshData.normalBuffer);
-  //      gl.vertexAttribPointer(billBoardShaders.vertexNormalAttribute,  board.meshData.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+  //      gl.vertexAttribPointer(board.shader.vertexNormalAttribute,  board.meshData.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  board.meshData.indexBuffer);
         
-		//gl.uniformMatrix4fv(billBoardShaders.mvMatrixUniform, false, board.positionMatrix);
-		gl.uniformMatrix4fv(billBoardShaders.mvMatrixUniform, false, board.positionMatrix);
+		//gl.uniformMatrix4fv(board.shader.mvMatrixUniform, false, board.positionMatrix);
+		gl.uniformMatrix4fv(board.shader.mvMatrixUniform, false, board.positionMatrix);
    
-    //    gl.uniformMatrix3fv(billBoardShaders.nMatrixUniform, false, normalMatrix);
-		gl.uniformMatrix4fv(billBoardShaders.RMatrixUniform, false, rotMat);
+    //    gl.uniformMatrix3fv(board.shader.nMatrixUniform, false, normalMatrix);
+		gl.uniformMatrix4fv(board.shader.RMatrixUniform, false, rotMat);
         gl.drawElements(gl.TRIANGLES,  board.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
-		
-		gl.disable(gl.BLEND);
-        gl.enable(gl.DEPTH_TEST);
 
 	}
 	
