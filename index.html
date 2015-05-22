@@ -44,6 +44,7 @@
     var terrainShader;
 	var billBoardShaders;
     var crateShader;
+	var outerTerrainShader;
 
 
     function setTeapotShaderProgramVars() {
@@ -105,6 +106,21 @@
         terrainShader.samplerUniform = gl.getUniformLocation(terrainShader, "uTexBump");
         terrainShader.nMatrixUniform = gl.getUniformLocation(terrainShader, "uNMatrix");
     }
+	
+	function setouterTerrainShaderProgramVars() {
+        gl.useProgram(outerTerrainShader);
+
+        outerTerrainShader.vertexPositionAttribute = gl.getAttribLocation(outerTerrainShader, "aVertexPosition");
+        gl.enableVertexAttribArray(outerTerrainShader.vertexPositionAttribute);
+
+        outerTerrainShader.mvMatrixUniform = gl.getUniformLocation(outerTerrainShader, "uMVMatrix");
+        outerTerrainShader.frustum = gl.getUniformLocation(outerTerrainShader, "frustum");
+        outerTerrainShader.camMatrix = gl.getUniformLocation(outerTerrainShader, "camMatrix");
+        outerTerrainShader.samplerUniform = gl.getUniformLocation(outerTerrainShader, "uTexBump");
+      
+		outerTerrainShader.textureCoordAttribute = gl.getAttribLocation(outerTerrainShader, "aTextureCoord");
+        gl.enableVertexAttribArray(outerTerrainShader.textureCoordAttribute);
+    }
 
     function setCrateShaderProgramVars() {
         gl.useProgram(crateShader);
@@ -151,11 +167,13 @@
 
         teapotShader = utils.addShaderProg(gl, 'teapot.vertex', 'teapot.frag');
         terrainShader = utils.addShaderProg(gl, 'terrain.vertex', 'terrain.frag');
+		outerTerrainShader = utils.addShaderProg(gl, 'terrain2.vertex', 'terrain2.frag');
 		skyBoxShaders = utils.addShaderProg(gl, 'skyBox.vertex', 'skyBox.frag');
 		billBoardShaders = utils.addShaderProg(gl, 'billBoard.vertex', 'billBoard.frag');
         crateShader = utils.addShaderProg(gl, "crateShader.vertex", "crateShader.frag");
         setTeapotShaderProgramVars();
         setTerrainShaderProgramVars();
+		setouterTerrainShaderProgramVars();
         setskyBoxShaderProgramVars();
 		setBillBoardShaderProgramVars();
         setCrateShaderProgramVars();
@@ -184,6 +202,7 @@
         mat4.translate(pos, pos, [ -80, -15, -80]);
 
         terrain.positionMatrix = pos;
+		console.log(pos);
         terrain.buildVertices();
         terrain.buildIndices();
         terrain.buildBuffers(gl);
@@ -201,6 +220,7 @@
 	var billBoardTexture;
     var noiseBumpMap;
     var crateTexture;
+	var grassTexture;
 
     function initTextures() {
 
@@ -214,6 +234,7 @@
         cloudTexture3 = setUpTextures(cloudTexture3, "cloudTex3.png");
         crateTexture = setUpTextures(crateTexture, "crate.gif");
 		billBoardTexture = setUpTextures(billBoardTexture, "tree2.png");
+		grassTexture = setUpTextures(grassTexture, "grass.jpg");
         terrainHeightMap = new Image();
         terrainHeightMap.onload = function () {
             handleLoadedHeightMap(terrainHeightMap)
@@ -334,6 +355,8 @@
 		outerTerrain = {name:"outerTerrain"};
 		outerTerrain.meshData = ourMeshes.outerTerrain;
 		outerTerrain.radius = 1;
+		outerTerrain.shader = outerTerrainShader;
+		outerTerrain.texture = grassTexture;
 
         eHouse.movable = false;
         eHouse.shader = teapotShader;
@@ -420,7 +443,7 @@
         ourObjects.push(teapot2);
 	
 		mat4.identity(posMat);
-        mat4.translate(posMat, posMat, [-500, -1, 500]);
+        mat4.translate(posMat, posMat, [-250, -16, 500]);
         outerTerrain.positionMatrix = mat4.clone(posMat);
     
         mat4.identity(posMat);
@@ -472,15 +495,16 @@
 		var billPos = mat4.create();
 		var newPos = mat4.create();
 		mat4.identity(billPos);
-		mat4.translate(billPos, billPos, [0, -5, 0]);
-		for (var i = 0; i < 200; i++) {
+		mat4.translate(billPos, billPos, [0, -0, 0]);
+		for (var i = 0; i < 20; i++) {
 			newPos = mat4.clone(billPos);
-			var random = Math.random() *20;
+			var random = Math.random() *50;
 			if(Math.random < 0.5){
-			mat4.translate(newPos, newPos, [random, 0,i/2]);
+			mat4.translate(newPos, newPos, [200+random, 0,i*10]);
 			}else{
-			mat4.translate(newPos, newPos, [-random, 0,i/2]);
+			mat4.translate(newPos, newPos, [200-random, 0,i*10]);
 			}
+			 mat4.rotate(newPos, newPos, degToRad(90), [0, 1, 0]);
 			
 		  // newPos = mat4.clone(billPos);
 		   var billBoard = {name:"billBoard"};
@@ -499,14 +523,18 @@
     function drawScene() {
         gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        drawSkyBoxes();
+        
+		drawSkyBoxes();
 		drawBillBoards();
 		drawObjects();
-		    
+		
         if (terrain != null && terrain.isFinished) {
             drawTerrain();
+			drawTerrain2();
         }
-
+		//drawBillBoards();
+		
+	
         if(!once && terrain != null && terrain.isFinished && skyBoxes[0] != null){
         // console.log(terrain);
         // console.log(skyBoxes[0]);
@@ -562,16 +590,21 @@
 		gl.useProgram(billBoardShaders);
 		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         gl.enable(gl.BLEND);
+		
+		
+		
         gl.disable(gl.DEPTH_TEST);
 		for (var i = 0; i < billBoards.length; i++) {
+		//for (var i = 0; i < 1; i++) {
            drawBillboard(billBoards[i]);
         }
 		gl.disable(gl.BLEND);
-        gl.enable(gl.DEPTH_TEST);
+       gl.enable(gl.DEPTH_TEST);
 		
 	}
-
+	var a = 0;
 	function drawBillboard(board){
+		a = a+0.1;
 		var cosa, sina, rotMat, a;
         var camMat = keyboardControls.getCamMatrix();
 		var directionFromModel = getModelDirection(board.positionMatrix, camMat);
@@ -584,20 +617,60 @@
 		
 		directionFromModel[1] = 0; //zero the y
 		
-		cosa = directionFromModel[0];
-		sina = directionFromModel[2];
+		var cosa2 = directionFromModel[0];
+		var sina2 = directionFromModel[2];
+		//console.log(camMat);
+		var inverse = mat4.create();
+		mat4.invert(inverse, camMat);
+		var vec = mat4.create();
+		mat4.identity(vec);
 		
-		a = Math.acos(cosa);
-		b = Math.asin(sina);
+		vec[0] = 0;
+		vec[5] = 0;
+		vec[10] = -1;
 		
+		vec[15] = 0;
+		
+		var temp = mat4.create();
+		mat4.multiply(temp, inverse, vec );
+		
+		cosa = temp[10];
+		sina = temp[8];
+		//console.log("cos: "+cosa+ " "+cosa2);
+		
+		//console.log("sin: "+sina+ " "+sina2);
+		//a = Math.acos(cosa);
+		//b = Math.asin(sina);
+		//console.log("cosa "+cosa+"sina "+sina);
 		rotMat = mat4.create();
 		mat4.identity(rotMat);
 		
-		rotMat[0] = cosa;
-		rotMat[2] = sina;
-		rotMat[8] = -sina;
-		rotMat[10] = cosa;
-	
+		rotMat[0] = cosa2;
+		rotMat[2] = sina2;
+		rotMat[8] = -sina2;
+		rotMat[10] = cosa2;
+		//var alfa = Math.PI/4
+		//rotMat[0] = Math.cos(alfa);
+		//rotMat[2] = -Math.sin(alfa);
+		//rotMat[8] = Math.sin(alfa);
+		//rotMat[10] = Math.cos(alfa);
+		
+		//var totMat = mat4.create(); 
+		//mat4.multiply(totMat,rotMat, inverse);
+		
+		//console.log(rotMat);
+		
+		
+		//mat4.multiply(totMat,totMat,camMat);
+		//console.log(totMat);
+		//console.log(totMat[2]);
+		//console.log(totMat[8]);
+		
+		
+		
+		
+		//console.log(board.positionMatrix); 
+		//mat4.multiply(rotMat,rotMat, board.positionMatrix);
 		
 		gl.activeTexture(gl.TEXTURE0);
         if (board.texture.isFinished) {
@@ -606,6 +679,11 @@
                 gl.bindTexture(gl.TEXTURE_2D, oneByOneTexture);
             }
 		gl.uniform1i(board.shader.samplerUniform, 0);
+				
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+		//gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+       // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 				
 		gl.bindBuffer(gl.ARRAY_BUFFER,  board.meshData.vertexBuffer);
         gl.vertexAttribPointer(board.shader.vertexPositionAttribute,  board.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
@@ -717,6 +795,50 @@
 
         gl.drawElements(gl.TRIANGLES,  terrain.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
     }
+	function drawTerrain2(){
+        gl.useProgram(outerTerrain.shader);
+	/**	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+		**/
+		
+        var camMat = keyboardControls.getCamMatrix();
+        gl.uniformMatrix4fv(outerTerrain.shader.camMatrix, false, camMat);
+        gl.uniformMatrix4fv(outerTerrain.shader.frustum, false, frustum);
+
+        gl.activeTexture(gl.TEXTURE0);
+        if (outerTerrain.texture.isFinished) {
+                gl.bindTexture(gl.TEXTURE_2D, outerTerrain.texture);
+            } else{
+                gl.bindTexture(gl.TEXTURE_2D, oneByOneTexture);
+        }
+        gl.uniform1i(outerTerrain.shader.samplerUniform, 0);
+
+		if(! outerTerrain.meshData.textures.length){
+            gl.disableVertexAttribArray(outerTerrain.shader.textureCoordAttribute);
+       } else {
+            gl.enableVertexAttribArray(outerTerrain.shader.textureCoordAttribute);
+            gl.bindBuffer(gl.ARRAY_BUFFER,  outerTerrain.meshData.textureBuffer);
+            gl.vertexAttribPointer(outerTerrain.shader.textureCoordAttribute,  outerTerrain.meshData.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        }
+		
+        gl.bindBuffer(gl.ARRAY_BUFFER,  outerTerrain.meshData.vertexBuffer);
+        gl.vertexAttribPointer(outerTerrain.shader.vertexPositionAttribute,  outerTerrain.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+       // gl.bindBuffer(gl.ARRAY_BUFFER,  outerTerrain.meshData.colorBuffer);
+        //gl.vertexAttribPointer(outerTerrain.shader.vertexColorAttribute,  outerTerrain.meshData.colorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+       // gl.bindBuffer(gl.ARRAY_BUFFER,  outerTerrain.meshData.normalBuffer);
+        //gl.vertexAttribPointer(outerTerrain.shader.vertexNormalAttribute,  outerTerrain.meshData.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  outerTerrain.meshData.indexBuffer);
+
+         gl.uniformMatrix4fv(outerTerrain.shader.mvMatrixUniform, false, outerTerrain.positionMatrix);
+        setMatrixUniforms(outerTerrain);
+
+        gl.drawElements(gl.TRIANGLES,  outerTerrain.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+    }
 
     function drawSkyBoxes(){
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -804,7 +926,7 @@
         initGL(canvas);
         initTextures();
         initShaders();
-        mat4.perspective(frustum, 45, gl.viewportWidth / gl.viewportHeight, 0.1, 200.0);
+        mat4.perspective(frustum, 45, gl.viewportWidth / gl.viewportHeight, 0.1, 1000.0);
         loadObjects();
         keyboardControls = new keyboardControls();
 
