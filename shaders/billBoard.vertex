@@ -9,10 +9,11 @@
     varying vec2 vTexCoord;
 	varying vec4 vPosition;
     void main(void) {
-		vPosition =uMVMatrix* uRMatrix * vec4(aVertexPosition, 1.0);
+		vTexCoord = aTextureCoord;
+		vPosition =uMVMatrix *uRMatrix* vec4(aVertexPosition, 1.0);
        gl_Position = frustum * camMatrix * vPosition;
 	
         //gl_Position = frustum * camMatrix *uRMatrix *uMVMatrix * vec4(aVertexPosition, 1.0);
 		//gl_Position = vec4(aVertexPosition, 1.0);
-        vTexCoord = aTextureCoord;
+        
     }

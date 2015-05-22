@@ -221,7 +221,7 @@
         cloudTexture2 = setUpTextures(cloudTexture2, "cloudTex2.png");
         cloudTexture3 = setUpTextures(cloudTexture3, "cloudTex3.png");
         crateTexture = setUpTextures(crateTexture, "crate.gif");
-		billBoardTexture = setUpTextures(billBoardTexture, "noise.jpg");
+		billBoardTexture = setUpTextures(billBoardTexture, "tree2.png");
         terrainHeightMap = new Image();
         terrainHeightMap.onload = function () {
             handleLoadedHeightMap(terrainHeightMap)
@@ -428,15 +428,31 @@
 		//createBillboard();
     }
 	
-	var billBoard;
+	var billBoards = [];
 	function createBillboard(){
+	
 		var billPos = mat4.create();
+		var newPos = mat4.create();
 		mat4.identity(billPos);
-		mat4.translate(billPos, billPos, [-0, 0, -0]);
-		billBoard = {name:"billBoard"};
-        billBoard.meshData = ourMeshes.billBoard;
-		billBoard.positionMatrix = billPos;
-		billBoard.texture = billBoardTexture;
+		mat4.translate(billPos, billPos, [0, -5, 0]);
+		for (var i = 0; i < 200; i++) {
+			newPos = mat4.clone(billPos);
+			var random = Math.random() *20;
+			if(Math.random < 0.5){
+			mat4.translate(newPos, newPos, [random, 0,i/2]);
+			}else{
+			mat4.translate(newPos, newPos, [-random, 0,i/2]);
+			}
+			
+		  // newPos = mat4.clone(billPos);
+		   var billBoard = {name:"billBoard"};
+		  
+			billBoard.meshData = ourMeshes.billBoard;
+			billBoard.positionMatrix = newPos;
+			billBoard.texture = billBoardTexture;
+			billBoards.push(billBoard);
+        }
+		
 	}
 
     var teapotAngle = 180;
@@ -446,9 +462,11 @@
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
         drawSkyBoxes();
+		for (var i = 0; i < billBoards.length; i++) {
+           drawBillboard(billBoards[i]);
+        }
 		drawObjects();
-		drawBillboard(billBoard);
-        
+		    
         if (terrain != null && terrain.isFinished) {
             drawTerrain();
         }
@@ -456,7 +474,7 @@
         if(!once && terrain != null && terrain.isFinished && skyBoxes[0] != null){
         // console.log(terrain);
         // console.log(skyBoxes[0]);
-		console.log(billBoard)
+		//console.log(billBoard)
         once = true;
         }
     }
@@ -543,10 +561,20 @@
 
 	function drawBillboard(board){
 		gl.useProgram(billBoardShaders);
+		
+		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.enable(gl.BLEND);
+        gl.disable(gl.DEPTH_TEST);
+
+     
+		
+		
 		var cosa, sina, rotMat, a;
         var camMat = keyboardControls.getCamMatrix();
 		var directionFromModel = getModelDirection(board.positionMatrix, camMat);
 		var normalMatrix = mat3.create();
+		var total = mat4.create();
+		//total = mat4.multiply(total, camMat, board.positionMatrix);
         mat3.fromMat4(normalMatrix, board.positionMatrix);
         mat3.invert(normalMatrix, normalMatrix);
         mat3.transpose(normalMatrix, normalMatrix);
@@ -556,27 +584,21 @@
 		cosa = directionFromModel[0];
 		sina = directionFromModel[2];
 		
-		//a = Math.acos(sina);
-		//b = Math.asin(-cosa);
-		
-		console.log(Math.acos(cosa));
-		console.log(Math.asin(sina));
+		a = Math.acos(cosa);
+		b = Math.asin(sina);
 		
 		rotMat = mat4.create();
 		mat4.identity(rotMat);
 		
 		rotMat[0] = cosa;
 		rotMat[2] = sina;
-		rotMat[6] = -sina;
-		rotMat[8] = cosa;
-		console.log("--------------");
-		//console.log(rotMat);
-		//console.log((180*Math.asin(sina))/Math.PI);
-		//console.log(Math.asin(sina));
+		rotMat[8] = -sina;
+		rotMat[10] = cosa;
+	
 		
 		gl.activeTexture(gl.TEXTURE0);
-        if (billBoard.texture.isFinished) {
-                gl.bindTexture(gl.TEXTURE_2D, billBoard.texture);
+        if (board.texture.isFinished) {
+                gl.bindTexture(gl.TEXTURE_2D, board.texture);
             } else{
                 gl.bindTexture(gl.TEXTURE_2D, oneByOneTexture);
             }
@@ -595,18 +617,22 @@
             gl.vertexAttribPointer(billBoardShaders.textureCoordAttribute,  board.meshData.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
         }
 		
+		
 
     //    gl.bindBuffer(gl.ARRAY_BUFFER,  board.meshData.normalBuffer);
   //      gl.vertexAttribPointer(billBoardShaders.vertexNormalAttribute,  board.meshData.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  board.meshData.indexBuffer);
         
+		//gl.uniformMatrix4fv(billBoardShaders.mvMatrixUniform, false, board.positionMatrix);
 		gl.uniformMatrix4fv(billBoardShaders.mvMatrixUniform, false, board.positionMatrix);
    
     //    gl.uniformMatrix3fv(billBoardShaders.nMatrixUniform, false, normalMatrix);
-		
 		gl.uniformMatrix4fv(billBoardShaders.RMatrixUniform, false, rotMat);
         gl.drawElements(gl.TRIANGLES,  board.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+		
+		   gl.disable(gl.BLEND);
+        gl.enable(gl.DEPTH_TEST);
 		
 		
 		
@@ -732,7 +758,7 @@
             'rectanglePlusMedium': 'objects/rectanglePlusMedium.obj',
             'teapot': 'objects/teapot.obj',
             'eHouse': 'objects/emilHouse3.obj',
-			'billBoard': 'objects/openbox.obj',
+			'billBoard': 'objects/billboard.obj',
 			'outerTerrain': 'objects/outerTerrain.obj'
         }, webGLAddObj);
     }
