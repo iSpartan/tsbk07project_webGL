@@ -4,7 +4,6 @@ varying vec2 vTexCoord;
 
 uniform sampler2D uTexBill;
 
-
 void main(void) {
 
 

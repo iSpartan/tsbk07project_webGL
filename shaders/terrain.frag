@@ -28,7 +28,6 @@ vec3 getNormal() {
     void main(void) {
 
         //float offset = 1.0 / 256.0; // texture size, same in both directions
-        //vec3 normal = normalize(vTransformedNormal);
         vec4 clr = vec4(vColorAttrib, 1.0);
 
         vec3 normal = getNormal();
