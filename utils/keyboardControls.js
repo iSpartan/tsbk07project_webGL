@@ -189,7 +189,7 @@ var keyboardControls = (function () {
     keyboardControls.prototype.printPos = function(){
         if (this.currentlyPressedKeys[80]) {
             //  P
-            console.log(this.objPos);
+            console.log(this.camMatrix);
         }
     }
 
@@ -273,8 +273,8 @@ var keyboardControls = (function () {
         var timeNow = new Date().getTime();
         if (this.lastTime != 0) {
             this.elapsed = timeNow - this.lastTime;
-            this.yaw += this.yawRate * this.elapsed;
             this.pitch += this.pitchRate * this.elapsed;
+            this.yaw += this.yawRate * this.elapsed;
 
             if (this.pitch != 0){
             mat4.identity(this.camMove);

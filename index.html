@@ -1,7 +1,7 @@
 <html>
 
 <head>
-<title>Learning WebGL &mdash; lesson 1</title>
+<title>Dungeons And Terrains</title>
 <meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
 
   <link rel="stylesheet" href="css/app.css"/>
@@ -18,10 +18,12 @@
 
     var gl;
     var keyboardControls;
+    var lightMat;
     function initGL(canvas) {
         try {
             gl = canvas.getContext("experimental-webgl");
             gl.getExtension('OES_standard_derivatives');
+            gl.getExtension('WEBGL_depth_texture');
             gl.viewportWidth = canvas.width;
             gl.viewportHeight = canvas.height;
         } catch (e) {
@@ -44,7 +46,60 @@
     var terrainShader;
 	var billBoardShaders;
     var crateShader;
+    var lightSourceShaders;
+    var simpleShader;
+    var depthFBO;
+    var depthTexture;
 
+    // function createFBOAndTexture(){
+    //     depthTexture = gl.createTexture();
+    //     depthTexture.width = 521;
+    //     depthTexture.height = 512;
+    //     gl.bindTexture(gl.TEXTURE_2D, depthTexture);
+    //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    //     gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT, depthTexture.width, depthTexture.height, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_SHORT, null);
+
+    //     depthFBO = gl.createFramebuffer();
+    //     gl.bindFramebuffer(gl.FRAMEBUFFER, depthFBO);
+    //     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, depthTexture, 0);
+    // }
+    function createFBOAndTexture(){
+        depthFBO=gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, depthFBO);
+
+        var rb=gl.createRenderbuffer();
+        gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
+        gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16 , 512, 512);
+
+        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT,
+                             gl.RENDERBUFFER, rb);
+
+        depthTexture=gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, depthTexture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 512, 512,
+                0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
+                          gl.TEXTURE_2D, depthTexture, 0);
+
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
+
+    function setSimpleShaderVars(){
+        gl.useProgram(simpleShader);
+
+        simpleShader.vertexPositionAttribute = gl.getAttribLocation(simpleShader, "aVertexPosition");
+        gl.enableVertexAttribArray(simpleShader.vertexPositionAttribute);
+
+        simpleShader.projection = gl.getUniformLocation(simpleShader, "projection");
+        simpleShader.camMatrix = gl.getUniformLocation(simpleShader, "camMatrix");
+    }
 
     function setTeapotShaderProgramVars() {
         gl.useProgram(teapotShader);
@@ -58,7 +113,7 @@
         teapotShader.textureCoordAttribute = gl.getAttribLocation(teapotShader, "aTextureCoord");
         gl.enableVertexAttribArray(teapotShader.textureCoordAttribute);
 
-        teapotShader.frustum = gl.getUniformLocation(teapotShader, "frustum");
+        teapotShader.projection = gl.getUniformLocation(teapotShader, "projection");
         teapotShader.camMatrix = gl.getUniformLocation(teapotShader, "camMatrix");
         teapotShader.mvMatrixUniform = gl.getUniformLocation(teapotShader, "uMVMatrix");
         teapotShader.nMatrixUniform = gl.getUniformLocation(teapotShader, "uNMatrix");
@@ -82,7 +137,7 @@
         gl.enableVertexAttribArray(skyBoxShaders.textureCoordAttribute);
 
         skyBoxShaders.camMatrix = gl.getUniformLocation(skyBoxShaders, "camMatrix");
-        skyBoxShaders.frustum = gl.getUniformLocation(skyBoxShaders, "frustum");
+        skyBoxShaders.projection = gl.getUniformLocation(skyBoxShaders, "projection");
         skyBoxShaders.samplerUniform = gl.getUniformLocation(skyBoxShaders, "uTexSky");
         skyBoxShaders.mvMatrixUniform = gl.getUniformLocation(skyBoxShaders, "uMVMatrix");
     }
@@ -100,10 +155,14 @@
         gl.enableVertexAttribArray(terrainShader.vertexColorAttribute);
 
         terrainShader.mvMatrixUniform = gl.getUniformLocation(terrainShader, "uMVMatrix");
-        terrainShader.frustum = gl.getUniformLocation(terrainShader, "frustum");
+        terrainShader.projection = gl.getUniformLocation(terrainShader, "projection");
         terrainShader.camMatrix = gl.getUniformLocation(terrainShader, "camMatrix");
         terrainShader.samplerUniform = gl.getUniformLocation(terrainShader, "uTexBump");
         terrainShader.nMatrixUniform = gl.getUniformLocation(terrainShader, "uNMatrix");
+        terrainShader.shadowTex = gl.getUniformLocation(terrainShader, "shadowTex");
+        terrainShader.lightMatrix = gl.getUniformLocation(terrainShader, "lightMatrix");
+        terrainShader.lightProjection = gl.getUniformLocation(terrainShader, "lightProjection");
+        terrainShader.pointLightingLocationUniform = gl.getUniformLocation(terrainShader, "uPointLightingLocation");
     }
 
     function setCrateShaderProgramVars() {
@@ -118,13 +177,14 @@
         crateShader.textureCoordAttribute = gl.getAttribLocation(crateShader, "aTextureCoord");
         gl.enableVertexAttribArray(crateShader.textureCoordAttribute);
 
-        crateShader.frustum = gl.getUniformLocation(crateShader, "frustum");
+        crateShader.projection = gl.getUniformLocation(crateShader, "projection");
         crateShader.camMatrix = gl.getUniformLocation(crateShader, "camMatrix");
         crateShader.mvMatrixUniform = gl.getUniformLocation(crateShader, "uMVMatrix");
         crateShader.nMatrixUniform = gl.getUniformLocation(crateShader, "uNMatrix");
         crateShader.samplerUniform = gl.getUniformLocation(crateShader, "uSampler");
         crateShader.bumpMap = gl.getUniformLocation(crateShader, "bumpMap");
-        crateShader.pointLightingLocationUniform = gl.getUniformLocation(crateShader, "uPointLightingLocation");
+        crateShader.lightSources = gl.getUniformLocation(crateShader, "ulightSources");
+        crateShader.amountOfLightSources = gl.getUniformLocation(crateShader, "uAmountOfLightSources");
     }
 
 	function setBillBoardShaderProgramVars() {
@@ -147,6 +207,17 @@
 
     }
 
+    function setLightSourceShaderVars(){
+        gl.useProgram(lightSourceShaders);
+
+        lightSourceShaders.vertexPositionAttribute = gl.getAttribLocation(lightSourceShaders, "aVertexPosition");
+        gl.enableVertexAttribArray(lightSourceShaders.vertexPositionAttribute);
+
+        lightSourceShaders.camMatrix = gl.getUniformLocation(lightSourceShaders, "camMatrix");
+        lightSourceShaders.projection = gl.getUniformLocation(lightSourceShaders, "projection");
+        lightSourceShaders.mvMatrixUniform = gl.getUniformLocation(lightSourceShaders, "uMVMatrix");
+    }
+
     function initShaders() {
 
         teapotShader = utils.addShaderProg(gl, 'teapot.vertex', 'teapot.frag');
@@ -154,11 +225,15 @@
 		skyBoxShaders = utils.addShaderProg(gl, 'skyBox.vertex', 'skyBox.frag');
 		billBoardShaders = utils.addShaderProg(gl, 'billBoard.vertex', 'billBoard.frag');
         crateShader = utils.addShaderProg(gl, "crateShader.vertex", "crateShader.frag");
+        lightSourceShaders = utils.addShaderProg(gl, "lightSource.vertex", "lightSource.frag");
+        simpleShader = utils.addShaderProg(gl, "plain.vertex", "plain.frag");
         setTeapotShaderProgramVars();
         setTerrainShaderProgramVars();
         setskyBoxShaderProgramVars();
 		setBillBoardShaderProgramVars();
         setCrateShaderProgramVars();
+        setLightSourceShaderVars();
+        setSimpleShaderVars();
 
     }
 
@@ -236,7 +311,8 @@
         return textureVarName;
     }
 
-    var frustum = mat4.create();
+    var projection = mat4.create();
+    var lightProjection = mat4.create();
 
     function setMatrixUniforms(model) {
         if (model.movable) {
@@ -249,11 +325,13 @@
             gl.uniformMatrix4fv(model.shader.mvMatrixUniform, false, model.positionMatrix);
         }
 
-        var normalMatrix = mat3.create();
-        mat3.fromMat4(normalMatrix, model.positionMatrix);
-        mat3.invert(normalMatrix, normalMatrix);
-        mat3.transpose(normalMatrix, normalMatrix);
-        gl.uniformMatrix3fv(model.shader.nMatrixUniform, false, normalMatrix);
+        if(model.shader.nMatrixUniform != null) {
+            var normalMatrix = mat3.create();
+            mat3.fromMat4(normalMatrix, model.positionMatrix);
+            mat3.invert(normalMatrix, normalMatrix);
+            mat3.transpose(normalMatrix, normalMatrix);
+            gl.uniformMatrix3fv(model.shader.nMatrixUniform, false, normalMatrix);
+        }
     }
 
     function degToRad(degrees) {
@@ -262,6 +340,7 @@
 
     var ourMeshes = {};
     var ourObjects = [];
+    var houseLightSources = [];
     var terrain = {};
     var skyBoxes = [];
 
@@ -276,6 +355,7 @@
         OBJ.initMeshBuffers(gl, ourMeshes.eHouse);
 		OBJ.initMeshBuffers(gl, ourMeshes.billBoard);
 		OBJ.initMeshBuffers(gl, ourMeshes.outerTerrain);
+        OBJ.initMeshBuffers(gl, ourMeshes.lamp);
         createBillboard();
 		createObjects();
 		
@@ -283,7 +363,7 @@
 
 	var outerTerrain;
     function createObjects(){
-        var teapot1, teapot2, eHouse, skyBox, cloudBox1, cloudBox2, cloudBox3, crate, crate2, crate3, lightSource1, lightSource2, lightSource3;
+        var teapot1, teapot2, eHouse, skyBox, cloudBox1, cloudBox2, cloudBox3, crate, crate2, crate3, crate4, lightSource1, lightSource2, lightSource3;
 
         teapot1 = {name:"teapot1"};
         teapot1.meshData = ourMeshes.teapot;
@@ -364,26 +444,35 @@
         crate3.movable = false;
         crate3.shader = crateShader;
 
+        crate4 = {name: "crate4"};
+        crate4.meshData = ourMeshes.cubePlusMedium;
+        crate4.texture = crateTexture;
+        crate4.bumpMap = noiseBumpMap;
+        crate4.hasBumpMap = true;
+        crate4.radius = 1;
+        crate4.movable = false;
+        crate4.shader = crateShader;
+
         lightSource1 = {name: "lightSource1"};
-        lightSource1.meshData = ourMeshes.cubePlus;
+        lightSource1.meshData = ourMeshes.lamp;
         lightSource1.texture = crateTexture;
-        lightSource1.radius = 1;
+        lightSource1.radius = 0.5;
         lightSource1.movable = false;
-        lightSource1.shader = teapotShader;
+        lightSource1.shader = lightSourceShaders;
 
         lightSource2 = {name: "lightSource2"};
-        lightSource2.meshData = ourMeshes.cubePlus;
+        lightSource2.meshData = ourMeshes.lamp;
         lightSource2.texture = crateTexture;
-        lightSource2.radius = 1;
+        lightSource2.radius = 0.5;
         lightSource2.movable = false;
-        lightSource2.shader = teapotShader;
+        lightSource2.shader = lightSourceShaders;
 
         lightSource3 = {name: "lightSource3"};
-        lightSource3.meshData = ourMeshes.cubePlus;
+        lightSource3.meshData = ourMeshes.lamp;
         lightSource3.texture = crateTexture;
-        lightSource3.radius = 1;
+        lightSource3.radius = 0.5;
         lightSource3.movable = false;
-        lightSource3.shader = teapotShader;
+        lightSource3.shader = lightSourceShaders;
 
 
         var posMat = mat4.create();
@@ -410,14 +499,14 @@
         mat4.rotate(posMat, posMat, degToRad(23.4), [1, 0, -1]);
         mat4.rotate(posMat, posMat, degToRad(teapotAngle), [0, 1, 0]);
         teapot1.positionMatrix = mat4.clone(posMat);
-        ourObjects.push(teapot1);
+        //ourObjects.push(teapot1);
 
         mat4.identity(posMat);
         mat4.translate(posMat, posMat, [10, 0, -40]);
         mat4.rotate(posMat, posMat, degToRad(-23.4), [1, 0, -1]);
         mat4.rotate(posMat, posMat, degToRad(-teapotAngle), [0, 1, 0]);
         teapot2.positionMatrix = mat4.clone(posMat);
-        ourObjects.push(teapot2);
+        //ourObjects.push(teapot2);
 	
 		mat4.identity(posMat);
         mat4.translate(posMat, posMat, [-500, -1, 500]);
@@ -430,15 +519,34 @@
         ourObjects.push(eHouse);
 
         mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [-10.6658, -8.7546, 16.8532]);
+        lightSource1.positionMatrix = mat4.clone(posMat);
+        houseLightSources.push(lightSource1);
+
+        mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [10.8099, -8.7546, 19.33]);
+        lightSource2.positionMatrix = mat4.clone(posMat);
+        houseLightSources.push(lightSource2);
+
+        mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [0, -8.7546, 4]);
+        lightSource3.positionMatrix = mat4.clone(posMat);
+        houseLightSources.push(lightSource3);
+
+        mat4.identity(posMat);
         mat4.translate(posMat, posMat, [-14.9331, -13.3361, 19.3915]);
         mat4.rotate(posMat, posMat, degToRad(0), [0, 1, 0]);
         crate.positionMatrix = mat4.clone(posMat);
+        crate.lightSources = [];
+        crate.lightSources.push(lightSource1);
         ourObjects.push(crate);
 
         mat4.identity(posMat);
         mat4.translate(posMat, posMat, [16.4274, -13.3361, 21.4712]);
         mat4.rotate(posMat, posMat, degToRad(90), [0, 1, 0]);
         crate2.positionMatrix = mat4.clone(posMat);
+        crate2.lightSources = [];
+        crate2.lightSources.push(lightSource2);
         ourObjects.push(crate2);
 
         mat4.identity(posMat);
@@ -446,27 +554,24 @@
         mat4.rotate(posMat, posMat, degToRad(180), [1, 1, 0]);
         mat4.rotate(posMat, posMat, 1.06, [1, 0, 0]);
         crate3.positionMatrix = mat4.clone(posMat);
+        crate3.lightSources = [];
+        crate3.lightSources.push(lightSource3);
         ourObjects.push(crate3);
 
         mat4.identity(posMat);
-        mat4.translate(posMat, posMat, [-10.6658, -8.7546, 16.8532]);
-        lightSource1.positionMatrix = mat4.clone(posMat);
-        ourObjects.push(lightSource1);
-
-        mat4.identity(posMat);
-        mat4.translate(posMat, posMat, [10.8099, -8.7546, 19.33]);
-        lightSource2.positionMatrix = mat4.clone(posMat);
-        ourObjects.push(lightSource2);
-
-        mat4.identity(posMat);
-        mat4.translate(posMat, posMat, [0, -8.7546, 4]);
-        lightSource3.positionMatrix = mat4.clone(posMat);
-        ourObjects.push(lightSource3);
+        mat4.translate(posMat, posMat, [0, -13.3361, 9.5395]);
+        crate4.positionMatrix = mat4.clone(posMat);
+        crate4.lightSources = [];
+        crate4.lightSources.push(lightSource1);
+        crate4.lightSources.push(lightSource2);
+        crate4.lightSources.push(lightSource3);
+        ourObjects.push(crate4);
 
 		//createBillboard();
     }
 	
 	var billBoard;
+
 	function createBillboard(){
 		var billPos = mat4.create();
 		mat4.identity(billPos);
@@ -480,6 +585,13 @@
     var teapotAngle = 180;
 
     function drawScene() {
+        getHTMLVars();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, depthFBO);
+        drawSceneForShadows();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.cullFace(gl.BACK);
+
         gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
@@ -487,18 +599,36 @@
 
 		drawObjects();
 
-		drawBillboard(billBoard);
+        if(billBoard != null)
+		  drawBillboard(billBoard);
 
         if (terrain != null && terrain.isFinished) {
             drawTerrain();
         }
+    }
 
-        if(!once && terrain != null && terrain.isFinished && skyBoxes[0] != null){
-        // console.log(terrain);
-        // console.log(skyBoxes[0]);
-		console.log(billBoard)
-        once = true;
+    function drawSceneForShadows(){
+        gl.viewport(0, 0, 512, 512);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.clearColor(1.0, 0.0, 0.0, 1.0);
+        gl.cullFace(gl.FRONT);
+
+        gl.useProgram(simpleShader);
+        lookAt();
+        for (var i = 0; i < ourObjects.length; i++) {
+           drawSimpleModel(ourObjects[i]);
         }
+    }
+
+    function drawSimpleModel(model){
+        gl.uniformMatrix4fv(simpleShader.projection, false, lightProjection);
+        gl.uniformMatrix4fv(simpleShader.camMatrix, false, lightMat);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, model.meshData.vertexBuffer);
+        gl.vertexAttribPointer(simpleShader.vertexPositionAttribute, model.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.meshData.indexBuffer);
+        gl.drawElements(gl.TRIANGLES, model.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
     }
 
     var lightLocation;
@@ -510,25 +640,11 @@
     var shininess;
 
     function drawObjects(){
-        specularHighlights = document.getElementById("specular").checked;
-
-        ifLighting = document.getElementById("lighting").checked;
-
-        shininess = parseFloat(document.getElementById("shininess").value);
-
-        if (ifLighting) {
-            lightColor = {x:parseFloat(document.getElementById("ambientR").value), y:parseFloat(document.getElementById("ambientG").value), z:parseFloat(document.getElementById("ambientB").value)};
-
-
-           lightLocation = {x:parseFloat(document.getElementById("lightPositionX").value), y:parseFloat(document.getElementById("lightPositionY").value), z:parseFloat(document.getElementById("lightPositionZ").value)};
-
-            speccColor = {x:parseFloat(document.getElementById("specularR").value), y:parseFloat(document.getElementById("specularG").value), z:parseFloat(document.getElementById("specularB").value)};
-
-            diffuseColor = {x:parseFloat(document.getElementById("diffuseR").value), y:parseFloat(document.getElementById("diffuseG").value), z:parseFloat(document.getElementById("diffuseB").value)};
-        }
-
         for (var i = 0; i < ourObjects.length; i++) {
            drawModel(ourObjects[i]);
+        }
+        for (var i = 0; i < houseLightSources.length; i++) {
+           drawModel(houseLightSources[i]);
         }
     }
 
@@ -563,9 +679,6 @@
 		//a = Math.acos(sina);
 		//b = Math.asin(-cosa);
 		
-		console.log(Math.acos(cosa));
-		console.log(Math.asin(sina));
-		
 		rotMat = mat4.create();
 		mat4.identity(rotMat);
 		
@@ -573,10 +686,6 @@
 		rotMat[2] = sina;
 		rotMat[6] = -sina;
 		rotMat[8] = cosa;
-		console.log("--------------");
-		//console.log(rotMat);
-		//console.log((180*Math.asin(sina))/Math.PI);
-		//console.log(Math.asin(sina));
 		
 		gl.activeTexture(gl.TEXTURE0);
         if (billBoard.texture.isFinished) {
@@ -589,7 +698,7 @@
 		gl.bindBuffer(gl.ARRAY_BUFFER,  board.meshData.vertexBuffer);
         gl.vertexAttribPointer(billBoardShaders.vertexPositionAttribute,  board.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
 		gl.uniformMatrix4fv(billBoardShaders.camMatrix, false, camMat);
-		gl.uniformMatrix4fv(billBoardShaders.frustum, false, frustum);
+		gl.uniformMatrix4fv(billBoardShaders.frustum, false, projection);
 
         if(! board.meshData.textures.length){
             gl.disableVertexAttribArray(billBoardShaders.textureCoordAttribute);
@@ -630,24 +739,37 @@
             gl.uniform3f(model.shader.pointLightingDiffuseColorUniform, diffuseColor.x, diffuseColor.y, diffuseColor.z);
         if(model.shader.materialShininessUniform != null)
             gl.uniform1f(model.shader.materialShininessUniform, shininess);
+        if (model.shader.lightSources){
+            var lghtSources = [];
+            for (var i = 0; i < model.lightSources.length; i++) {
+                lghtSources.push(model.lightSources[i].positionMatrix[12]);
+                lghtSources.push(model.lightSources[i].positionMatrix[13]);
+                lghtSources.push(model.lightSources[i].positionMatrix[14]);
+            }
+            gl.uniform1f(model.shader.amountOfLightSources, i);
+            gl.uniform3fv(model.shader.lightSources, lghtSources);
+        }
 
         var camMat = keyboardControls.getCamMatrix();
         gl.uniformMatrix4fv(model.shader.camMatrix, false, camMat);
-        gl.uniformMatrix4fv(model.shader.frustum, false, frustum);
+        gl.uniformMatrix4fv(model.shader.projection, false, projection);
 
         if(model.hasBumpMap){
             gl.activeTexture(gl.TEXTURE1);
             gl.bindTexture(gl.TEXTURE_2D, model.bumpMap);
             gl.uniform1i(model.shader.bumpMap, 1);
         }
-
-        gl.activeTexture(gl.TEXTURE0);
-        if (model.texture.isFinished) {
-                gl.bindTexture(gl.TEXTURE_2D, model.texture);
-            } else{
-                gl.bindTexture(gl.TEXTURE_2D, oneByOneTexture);
-            }
-        gl.uniform1i(model.shader.samplerUniform, 0);
+        if(model.texture != null){
+            gl.activeTexture(gl.TEXTURE0);
+            if (model.texture.isFinished) {
+                    gl.bindTexture(gl.TEXTURE_2D, model.texture);
+                    // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                    // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+                } else{
+                    gl.bindTexture(gl.TEXTURE_2D, oneByOneTexture);
+                }
+            gl.uniform1i(model.shader.samplerUniform, 0);
+        }
 
         if(! model.meshData.textures.length){
             gl.disableVertexAttribArray(model.shader.textureCoordAttribute);
@@ -657,8 +779,10 @@
             gl.vertexAttribPointer(model.shader.textureCoordAttribute,  model.meshData.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
         }
 
-        gl.bindBuffer(gl.ARRAY_BUFFER,  model.meshData.normalBuffer);
-        gl.vertexAttribPointer(model.shader.vertexNormalAttribute,  model.meshData.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        if(model.shader.vertexNormalAttribute != null){
+            gl.bindBuffer(gl.ARRAY_BUFFER,  model.meshData.normalBuffer);
+            gl.vertexAttribPointer(model.shader.vertexNormalAttribute,  model.meshData.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        }
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  model.meshData.indexBuffer);
         setMatrixUniforms(model);
@@ -669,7 +793,10 @@
         gl.useProgram(terrain.shader);
         var camMat = keyboardControls.getCamMatrix();
         gl.uniformMatrix4fv(terrain.shader.camMatrix, false, camMat);
-        gl.uniformMatrix4fv(terrain.shader.frustum, false, frustum);
+        gl.uniformMatrix4fv(terrain.shader.projection, false, projection);
+        gl.uniformMatrix4fv(terrain.shader.lightMatrix, false, lightMat);
+        gl.uniformMatrix4fv(terrain.shader.lightProjection, false, lightProjection);
+        gl.uniform3f(terrain.shader.pointLightingLocationUniform, lightLocation.x, lightLocation.y, lightLocation.z);
 
         gl.activeTexture(gl.TEXTURE0);
         if (noiseBumpMap.isFinished) {
@@ -678,6 +805,10 @@
                 gl.bindTexture(gl.TEXTURE_2D, oneByOneTexture);
         }
         gl.uniform1i(terrain.shader.samplerUniform, 0);
+
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, depthTexture);
+        gl.uniform1i(terrain.shader.shadowTex, 1);
 
         gl.bindBuffer(gl.ARRAY_BUFFER,  terrain.vertexBuffer);
         gl.vertexAttribPointer(terrain.shader.vertexPositionAttribute,  terrain.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
@@ -720,7 +851,7 @@
         temp[13]=-0.5;
         temp[14]=0;
         gl.uniformMatrix4fv(model.shader.camMatrix, false, temp);
-        gl.uniformMatrix4fv(model.shader.frustum, false, frustum);
+        gl.uniformMatrix4fv(model.shader.projection, false, projection);
 
         if (model.rotVec != null) {
             mat4.rotate(model.positionMatrix, model.positionMatrix, degToRad(model.rotSpeed * time), [model.rotVec.x, model.rotVec.y, model.rotVec.z]);
@@ -766,6 +897,7 @@
     function loadObjects(){
         OBJ.downloadMeshes({
 			'skyBox': 'objects/skybox.obj',
+            'lamp': 'objects/simple_sphere.obj',
             'cubePlus': 'objects/cubePlus.obj',
             'cubePlusMedium': 'objects/cubePlusMedium.obj',
             'rectanglePlusMedium': 'objects/rectanglePlusMedium.obj',
@@ -782,7 +914,9 @@
         initGL(canvas);
         initTextures();
         initShaders();
-        mat4.perspective(frustum, 45, gl.viewportWidth / gl.viewportHeight, 0.1, 200.0);
+        createFBOAndTexture();
+        mat4.perspective(projection, 45, gl.viewportWidth / gl.viewportHeight, 0.1, 200.0);
+        lightMat = mat4.create();
         loadObjects();
         keyboardControls = new keyboardControls();
 
@@ -793,6 +927,66 @@
         document.onkeyup = handleKeyUp;
 
         tick();
+    }
+
+    function printOnce(object){
+        if(object != null && !once){
+        console.log(object);
+        once = true;
+        }
+    }
+
+    function getHTMLVars(){
+        specularHighlights = document.getElementById("specular").checked;
+
+        ifLighting = document.getElementById("lighting").checked;
+
+        shininess = parseFloat(document.getElementById("shininess").value);
+
+        if (ifLighting) {
+            lightColor = {x:parseFloat(document.getElementById("ambientR").value), y:parseFloat(document.getElementById("ambientG").value), z:parseFloat(document.getElementById("ambientB").value)};
+
+
+           lightLocation = {x:parseFloat(document.getElementById("lightPositionX").value), y:parseFloat(document.getElementById("lightPositionY").value), z:parseFloat(document.getElementById("lightPositionZ").value)};
+
+            speccColor = {x:parseFloat(document.getElementById("specularR").value), y:parseFloat(document.getElementById("specularG").value), z:parseFloat(document.getElementById("specularB").value)};
+
+            diffuseColor = {x:parseFloat(document.getElementById("diffuseR").value), y:parseFloat(document.getElementById("diffuseG").value), z:parseFloat(document.getElementById("diffuseB").value)};
+        }
+    }
+
+    function lookAt(){
+    var lightLoc = vec3.fromValues(lightLocation.x, lightLocation.y, lightLocation.z);
+    var focal = vec3.fromValues(0, -13.3361, 9.5395);
+    var up = vec3.fromValues(0, 1, 0);
+
+    var n = vec3.create(), u = vec3.create(), v = vec3.create();
+
+    vec3.subtract(n, lightLoc, focal);
+    vec3.normalize(n, n);
+    vec3.cross(u, up, n)
+    vec3.normalize(u, u);
+    vec3.cross(v, n, u);
+
+    var rot = mat4.create();
+    mat4.identity(rot);
+    var trans = mat4.clone(rot);
+    rot[0] = u[0];
+    rot[1] = u[1];
+    rot[2] = u[2];
+
+    rot[3] = v[0];
+    rot[4] = v[1];
+    rot[5] = v[2];
+
+    rot[6] = n[0];
+    rot[7] = n[1];
+    rot[8] = n[2];
+
+    mat4.translate(trans, trans, [-lightLocation.x, -lightLocation.y, -lightLocation.z]);
+    mat4.multiply(lightMat, rot, trans);
+    mat4.ortho(lightProjection, -0.5, 0.5, -0.5, 0.5, 1.0, 200);
+    // lightMat is now the lookAt matrix
     }
 
 </script>
@@ -821,9 +1015,9 @@
     <table style="border: 0; padding: 10px;">
         <tr>
             <td><b>Location:</b>
-            <td>X: <input type="text" id="lightPositionX" value="-10.0" />
-            <td>Y: <input type="text" id="lightPositionY" value="4.0" />
-            <td>Z: <input type="text" id="lightPositionZ" value="-20.0" />
+            <td>X: <input type="text" id="lightPositionX" value="-70.0" />
+            <td>Y: <input type="text" id="lightPositionY" value="16.0" />
+            <td>Z: <input type="text" id="lightPositionZ" value="-30.0" />
         </tr>
         <tr>
             <td><b>Specular colour:</b>
@@ -844,9 +1038,9 @@
     <table style="border: 0; padding: 10px;">
         <tr>
             <td><b>Colour:</b>
-            <td>R: <input type="text" id="ambientR" value="0.2" />
-            <td>G: <input type="text" id="ambientG" value="0.2" />
-            <td>B: <input type="text" id="ambientB" value="0.2" />
+            <td>R: <input type="text" id="ambientR" value="0.1" />
+            <td>G: <input type="text" id="ambientG" value="0.1" />
+            <td>B: <input type="text" id="ambientB" value="0.1" />
         </tr>
     </table>
     <br/>

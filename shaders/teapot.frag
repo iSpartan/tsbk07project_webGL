@@ -17,6 +17,13 @@
 
     uniform sampler2D uSampler;
 
+float LinearizeDepth(float depth)
+{
+    float near = 0.1; 
+    float far = 200.0; 
+    float z = depth * 2.0 - 1.0; // Back to NDC 
+    return (2.0 * near) / (far + near - z * (far - near));  
+}
 
     void main(void) {
         vec3 lightWeighting;
@@ -43,4 +50,6 @@
         vec4 fragmentColor;
         fragmentColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
         gl_FragColor = vec4(fragmentColor.rgb * lightWeighting, fragmentColor.a);
+        //float depth = LinearizeDepth(gl_FragCoord.z);
+        //gl_FragColor = vec4(depth, depth, depth , 1.0);
     }

@@ -1,0 +1,13 @@
+    attribute vec3 aVertexPosition;
+
+    uniform mat4 projection;
+    uniform mat4 camMatrix;
+    
+	varying float vDepth;
+
+    void main(void) {
+    	vec4 pos = projection * camMatrix * vec4(aVertexPosition, 1.0);
+    	float zBuf=pos.z/pos.w;
+    	vDepth=0.5+zBuf*0.5;
+        gl_Position = pos;
+    }

@@ -4,18 +4,18 @@
     varying vec3 vTransformedNormal;
     varying vec4 vPosition;
 
-    uniform vec3 uPointLightingLocation;
+    uniform vec3 ulightSources[3];
     uniform sampler2D uSampler;
     uniform sampler2D bumpMap;
+    uniform float uAmountOfLightSources;
 
 #extension GL_OES_standard_derivatives : enable
 
 vec3 getNormal() {
     // Differentiate the position vector
-    vec3 dPositiondx = dFdx(vPosition).rgb;
-    vec3 dPositiondy = dFdy(vPosition).rgb;
-    vec2 st = vPosition.xy / 65536.0;
-    float depth = texture2D(bumpMap, st).a;
+    vec3 dPositiondx = dFdx(vPosition.xyz);
+    vec3 dPositiondy = dFdy(vPosition.xyz);
+    float depth = texture2D(bumpMap, vTextureCoord).a;
     float dDepthdx = dFdx(depth);
     float dDepthdy = dFdy(depth);
     vec3 normal = normalize(vTransformedNormal);
@@ -26,34 +26,48 @@ vec3 getNormal() {
     return normalize(cross(dPositiondx, dPositiondy));
 }
 
-    void main(void) {
-        vec3 lightWeighting;
-        bool showSpecularHighlights = true;
-        bool useLighting = true;
+vec3 getLightStrength(vec3 light, vec3 color){
+    vec3 lightDirection = normalize(light - vPosition.xyz);
+    vec3 white = vec3(1.0, 1.0, 1.0);
+    float shade = 0.0;
+    vec3 clr;
+            //vec3 normal = getNormal();
+            vec3 normal = normalize(vTransformedNormal);
 
+            float diffuse = max(dot(normal, lightDirection), 0.0);
 
-        if (!useLighting) {
-            lightWeighting = vec3(1.0, 1.0, 1.0);
-        } else {
-            vec3 lightDirection = normalize(uPointLightingLocation - vPosition.xyz);
-            vec3 normal = getNormal();
+            vec3 eyeDirection = normalize(-vPosition.xyz);
+            vec3 reflectionDirection = reflect(-lightDirection, normal);
 
-
-            float specularLightWeighting = 0.0;
-            if (showSpecularHighlights) {
-                vec3 eyeDirection = normalize(-vPosition.xyz);
-                vec3 reflectionDirection = reflect(-lightDirection, normal);
-
-                specularLightWeighting = pow(max(dot(reflectionDirection, eyeDirection), 0.0), 32.0);
+            float tmp = dot(-lightDirection, normal);
+            float specular = dot(reflectionDirection, eyeDirection);
+            if (specular > 0.0 && tmp < 0.0){
+                specular = 5.0 * pow(specular, 4.0);
+                //specular = 300.0 * pow(specular, 8.0);
             }
+            specular = max(specular, 0.0);
 
-            float diffuseLightWeighting = max(dot(normal, lightDirection), 0.0);
-            lightWeighting = vec3(0.1, 0.1, 0.1)
-                + vec3(0.8, 0.8, 0.8) * specularLightWeighting
-                + vec3(0.8, 0.8, 0.8) * diffuseLightWeighting;
-        }
+            shade = 0.7 * diffuse + 0.1 * specular + (0.2 / uAmountOfLightSources);
+            //shade = 0.0 * diffuse + 0.1 * specular + (0.0 / uAmountOfLightSources);
 
-        vec4 fragmentColor;
-        fragmentColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
-        gl_FragColor = vec4(fragmentColor.rgb * lightWeighting, fragmentColor.a);
+            //clr = mix(dark, color, 0.1 + 0.9 * diffuse);
+            //clr = mix(clr, lght, 0.5 * specular) / uAmountOfLightSources;
+            clr = shade * color * white;
+            return clr;
+}
+
+    void main(void) {
+        vec4 fragmentColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+        //vec4 fragmentColor = vec4(1.0, 1.0, 1.0 ,1.0);
+        vec3 lightWeighting = vec3(0.0, 0.0, 0.0);
+
+                int maxLoop = int(uAmountOfLightSources);
+
+            for (int i = 0; i < 3; i++) {
+                if(i >= maxLoop){
+                    break;
+                }
+                lightWeighting += getLightStrength(ulightSources[i], fragmentColor.rgb);
+            }
+        gl_FragColor = vec4(lightWeighting, fragmentColor.a);
     }

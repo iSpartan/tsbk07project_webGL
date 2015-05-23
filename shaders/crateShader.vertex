@@ -4,7 +4,7 @@
 
     uniform mat4 uMVMatrix;
     uniform mat4 camMatrix;
-    uniform mat4 frustum;
+    uniform mat4 projection;
     uniform mat3 uNMatrix;
 
     varying vec2 vTextureCoord;
@@ -13,7 +13,7 @@
 
     void main(void) {
         vPosition = uMVMatrix * vec4(aVertexPosition, 1.0);
-        gl_Position = frustum * camMatrix * vPosition;
+        gl_Position = projection * camMatrix * vPosition;
         vTextureCoord = aTextureCoord;
         vTransformedNormal = uNMatrix * aVertexNormal;
     }
