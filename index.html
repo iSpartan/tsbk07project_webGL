@@ -48,6 +48,7 @@
     var crateShader;
     var lightSourceShaders;
     var simpleShader;
+    var outerTerrainShader;
     var depthFBO;
     var depthTexture;
 
@@ -276,7 +277,6 @@
         mat4.translate(pos, pos, [ -80, -15, -80]);
 
         terrain.positionMatrix = pos;
-		console.log(pos);
         terrain.buildVertices();
         terrain.buildIndices();
         terrain.buildBuffers(gl);
@@ -295,7 +295,6 @@
     var noiseBumpMap;
     var crateTexture;
 	var grassTexture;
-    var outerTerrainShader;
 
     function initTextures() {
 
@@ -364,6 +363,7 @@
     var houseLightSources = [];
     var terrain = {};
     var skyBoxes = [];
+    var outerTerrain;
 
     function webGLAddObj(meshes){
         ourMeshes = meshes;
@@ -382,7 +382,6 @@
 		
     }
 
-	var outerTerrain;
     function createObjects(){
         var teapot1, teapot2, eHouse, skyBox, cloudBox1, cloudBox2, cloudBox3, crate, crate2, crate3, crate4, lightSource1, lightSource2, lightSource3;
 
@@ -599,7 +598,7 @@
 		var billPos = mat4.create();
 		var newPos = mat4.create();
 		mat4.identity(billPos);
-		mat4.translate(billPos, billPos, [0, -0, 0]);
+		mat4.translate(billPos, billPos, [0, -16, 0]);
 		for (var i = 0; i < 10; i++) {
 			newPos = mat4.clone(billPos);
 			var random = Math.random() *50;
@@ -674,7 +673,9 @@
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         
 		drawSkyBoxes();
-        drawTerrain2();
+        if (outerTerrain != null) {
+            drawTerrain2();
+        }
 		drawBillBoards();
 		drawObjects();
 
@@ -741,12 +742,12 @@
 		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         gl.enable(gl.BLEND);
 		
-		
-		
         gl.disable(gl.DEPTH_TEST);
 		for (var i = 0; i < billBoards.length; i++) {
 		//for (var i = 0; i < 1; i++) {
-           drawBillboard(billBoards[i]);
+            if(billBoards[i] != null){
+                drawBillboard(billBoards[i]);
+            }
         }
 		gl.disable(gl.BLEND);
        gl.enable(gl.DEPTH_TEST);
@@ -934,7 +935,7 @@
 		
         var camMat = keyboardControls.getCamMatrix();
         gl.uniformMatrix4fv(outerTerrain.shader.camMatrix, false, camMat);
-        gl.uniformMatrix4fv(outerTerrain.shader.frustum, false, frustum);
+        gl.uniformMatrix4fv(outerTerrain.shader.frustum, false, projection);
 
         gl.activeTexture(gl.TEXTURE0);
         if (outerTerrain.texture.isFinished) {
