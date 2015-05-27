@@ -43,7 +43,7 @@ var Heightmap = (function () {
     var all = 0;
     for (var i = 0, n = size; i < n; i += (4)) {
         all = pix[i]+pix[i+1]+pix[i+2];
-        heigthData[j++] = all/100;
+        heigthData[j++] = all/150;
         if (heigthData[j] > maxHeight) {
             maxHeight = heigthData[j];
         };
@@ -139,6 +139,7 @@ var TerrainBlock = (function () {
         this.indices = [];
         this.normals = [];
         this.colors = [];
+        this.colorsCandy = [];
     };
 
     /**
@@ -177,16 +178,12 @@ var TerrainBlock = (function () {
                 this.normals.push(2 * TerrainBlock.SCALE_HORIZONTAL);
                 this.normals.push(nZ * TerrainBlock.SCALE_VERTICAL);
 
-                this.normals.push(nX * TerrainBlock.SCALE_VERTICAL);
-                this.normals.push(2 * TerrainBlock.SCALE_HORIZONTAL);
-                this.normals.push(nZ * TerrainBlock.SCALE_VERTICAL);
-
                 this.colors.push((bottomColor[0] + (topColor[0] - bottomColor[0]) * ( 2 * height / maxHeight)) / 255);
-                // this.colors.push(rZ % 4);
+                this.colorsCandy.push(rZ % 4);
                 this.colors.push((bottomColor[1] + (topColor[1] - bottomColor[1]) * ( 2 * height / maxHeight)) / 255);
-                // this.colors.push(rX % 3);
+                this.colorsCandy.push(rX % 3);
                 this.colors.push((bottomColor[2] + (topColor[2] - bottomColor[2]) * ( 2 * height / maxHeight)) / 255);
-                // this.colors.push((rX + rZ) % 5);
+                this.colorsCandy.push((rX + rZ) % 5);
             }
         }
     };
@@ -217,6 +214,7 @@ var TerrainBlock = (function () {
 
     this.normalBuffer = _buildBuffer(gl, gl.ARRAY_BUFFER, this.normals, 3);
     this.colorBuffer = _buildBuffer(gl, gl.ARRAY_BUFFER, this.colors, 3);
+    this.colorCandyBuffer = _buildBuffer(gl, gl.ARRAY_BUFFER, this.colorsCandy, 3);
     this.vertexBuffer = _buildBuffer(gl, gl.ARRAY_BUFFER, this.vertices, 3);
     this.indexBuffer = _buildBuffer(gl, gl.ELEMENT_ARRAY_BUFFER, this.indices, 1);
     this.isFinished = true;

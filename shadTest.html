@@ -1,0 +1,558 @@
+<html>
+
+<head>
+<title>Test shadows</title>
+<meta http-equiv="content-type" content="text/html; charset=ISO-8859-1">
+
+  <link rel="stylesheet" href="css/app.css"/>
+
+<script type="text/javascript" src="utils/jquery-1.11.2.min.js"></script>
+<script type="text/javascript" src="utils/gl-matrix.js"></script>
+<script type="text/javascript" src="utils/loadShaderUtil.js"></script>
+<script type="text/javascript" src="utils/webgl-obj-loader.js"></script>
+<script type="text/javascript" src="utils/webgl-utils.js"></script>
+<script type="text/javascript" src="utils/terrain.js"></script>
+<script type="text/javascript" src="utils/keyboardControls.js"></script>
+
+<script type="text/javascript">
+
+    var gl;
+    var keyboardControls;
+    var lightMat;
+    var lightTexMat;
+    function initGL(canvas) {
+        try {
+            gl = canvas.getContext("webgl");
+            gl.getExtension('OES_standard_derivatives');
+            gl.getExtension('WEBGL_depth_texture');
+            gl.getExtension("OES_element_index_uint");
+            gl.getExtension("MOZ_OES_element_index_uint");
+            gl.getExtension("WEBKIT_OES_element_index_uint");
+            gl.getExtension("WEBKIT_WEBGL_depth_texture");
+            gl.viewportWidth = canvas.width;
+            gl.viewportHeight = canvas.height;
+        } catch (e) {
+        }
+        if (!gl) {
+            alert("Could not initialise WebGL, sorry :-(");
+        }
+    }
+
+    function handleKeyDown(event) {
+        keyboardControls.handleKeyDown(event);
+    }
+
+    function handleKeyUp(event) {
+        keyboardControls.handleKeyUp(event);
+    }
+	
+    var teapotShader;
+    var simpleShader;
+    var terrainShader;
+    var depthFBO;
+    var depthTexture;
+
+    function createFBOAndTexture(){
+        var size = 512;
+        // Create a color texture
+        var colorTexture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, colorTexture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, size, size, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+        // Create the depth texture
+        depthTexture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, depthTexture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT, size, size, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_SHORT, null);
+
+        depthFBO = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, depthFBO);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, colorTexture, 0);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, depthTexture, 0);
+    }
+
+    function setSimpleShaderVars(){
+        gl.useProgram(simpleShader);
+
+        simpleShader.vertexPositionAttribute = gl.getAttribLocation(simpleShader, "aVertexPosition");
+        gl.enableVertexAttribArray(simpleShader.vertexPositionAttribute);
+
+        simpleShader.projection = gl.getUniformLocation(simpleShader, "projection");
+        simpleShader.camMatrix = gl.getUniformLocation(simpleShader, "camMatrix");
+        teapotShader.mvMatrixUniform = gl.getUniformLocation(teapotShader, "uMVMatrix");
+    }
+
+    function setTeapotShaderProgramVars() {
+        gl.useProgram(teapotShader);
+
+        teapotShader.vertexPositionAttribute = gl.getAttribLocation(teapotShader, "aVertexPosition");
+        gl.enableVertexAttribArray(teapotShader.vertexPositionAttribute);
+
+        teapotShader.vertexNormalAttribute = gl.getAttribLocation(teapotShader, "aVertexNormal");
+        gl.enableVertexAttribArray(teapotShader.vertexNormalAttribute);
+
+        teapotShader.textureCoordAttribute = gl.getAttribLocation(teapotShader, "aTextureCoord");
+        gl.enableVertexAttribArray(teapotShader.textureCoordAttribute);
+
+        teapotShader.projection = gl.getUniformLocation(teapotShader, "projection");
+        teapotShader.camMatrix = gl.getUniformLocation(teapotShader, "camMatrix");
+        teapotShader.mvMatrixUniform = gl.getUniformLocation(teapotShader, "uMVMatrix");
+        teapotShader.nMatrixUniform = gl.getUniformLocation(teapotShader, "uNMatrix");
+        teapotShader.samplerUniform = gl.getUniformLocation(teapotShader, "uSampler");
+        teapotShader.materialShininessUniform = gl.getUniformLocation(teapotShader, "uMaterialShininess");
+        teapotShader.showSpecularHighlightsUniform = gl.getUniformLocation(teapotShader, "uShowSpecularHighlights");
+        teapotShader.useLightingUniform = gl.getUniformLocation(teapotShader, "uUseLighting");
+        teapotShader.ambientColorUniform = gl.getUniformLocation(teapotShader, "uAmbientColor");
+        teapotShader.pointLightingLocationUniform = gl.getUniformLocation(teapotShader, "uPointLightingLocation");
+        teapotShader.pointLightingSpecularColorUniform = gl.getUniformLocation(teapotShader, "uPointLightingSpecularColor");
+        teapotShader.pointLightingDiffuseColorUniform = gl.getUniformLocation(teapotShader, "uPointLightingDiffuseColor");
+    }
+	
+	function setTerrainShaderProgramVars() {
+        gl.useProgram(terrainShader);
+
+        terrainShader.vertexPositionAttribute = gl.getAttribLocation(terrainShader, "aVertexPosition");
+        gl.enableVertexAttribArray(terrainShader.vertexPositionAttribute);
+
+        terrainShader.mvMatrixUniform = gl.getUniformLocation(terrainShader, "uMVMatrix");
+        terrainShader.frustum = gl.getUniformLocation(terrainShader, "frustum");
+        terrainShader.camMatrix = gl.getUniformLocation(terrainShader, "camMatrix");
+        terrainShader.shadowTex = gl.getUniformLocation(terrainShader, "shadowTex");
+        terrainShader.lightMatrix = gl.getUniformLocation(terrainShader, "lightMatrix");
+    }
+
+    function initShaders() {
+
+        teapotShader = utils.addShaderProg(gl, 'teapot.vertex', 'teapot.frag');
+		terrainShader = utils.addShaderProg(gl, 'terrainDepthSimp.vertex', 'terrainDepthSimp.frag');
+        simpleShader = utils.addShaderProg(gl, "plainDepth.vertex", "plainDepth.frag");
+        setTeapotShaderProgramVars();
+		setTerrainShaderProgramVars();
+        setSimpleShaderVars();
+
+    }
+
+    function handleLoadedTexture(texture) {
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
+        gl.generateMipmap(gl.TEXTURE_2D);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        texture.isFinished = true;
+    }
+
+    var galvanizedTexture;
+    var oneByOneTexture;
+
+    function initTextures() {
+
+        oneByOneTexture = setUpTextures(oneByOneTexture, "1x1.jpg");
+        galvanizedTexture = setUpTextures(galvanizedTexture, "arroway.de_metal+structure+06_d100_flat.jpg");
+    }
+
+    function setUpTextures(textureVarName, picture){
+        textureVarName = gl.createTexture();
+        textureVarName.isFinished = false;
+        textureVarName.image = new Image();
+        textureVarName.image.onload = function () {
+            handleLoadedTexture(textureVarName)
+        }
+        textureVarName.image.src = "textures/"+picture;
+        return textureVarName;
+    }
+
+    var projection = mat4.create();
+    var lightProjection = mat4.create();
+
+    function setMatrixUniforms(model) {
+            gl.uniformMatrix4fv(model.shader.mvMatrixUniform, false, model.positionMatrix);
+
+        if(model.shader.nMatrixUniform != null) {
+            var normalMatrix = mat3.create();
+            mat3.fromMat4(normalMatrix, model.positionMatrix);
+            mat3.invert(normalMatrix, normalMatrix);
+            mat3.transpose(normalMatrix, normalMatrix);
+            gl.uniformMatrix3fv(model.shader.nMatrixUniform, false, normalMatrix);
+        }
+    }
+
+    function degToRad(degrees) {
+        return degrees * Math.PI / 180;
+    }
+
+    var ourMeshes = {};
+    var ourObjects = [];
+    var terrain;
+
+    function webGLAddObj(meshes){
+        ourMeshes = meshes;
+        OBJ.initMeshBuffers(gl, ourMeshes.cubePlusMedium);
+		OBJ.initMeshBuffers(gl, ourMeshes.outerTerrain);
+		createObjects();
+    }
+
+    function createObjects(){
+        var crate, crate2;
+
+		terrain = {name:"outerTerrain"};
+		terrain.meshData = ourMeshes.outerTerrain;
+		terrain.radius = 1;
+		terrain.shader = terrainShader;
+
+        crate = {name: "crate"};
+        crate.meshData = ourMeshes.cubePlusMedium;
+        crate.texture = galvanizedTexture;
+        crate.radius = 1;
+        crate.movable = false;
+        crate.shader = teapotShader;
+
+        crate2 = {name: "crate2"};
+        crate2.meshData = ourMeshes.cubePlusMedium;
+        crate2.texture = galvanizedTexture;
+        crate2.radius = 1;
+        crate2.movable = false;
+        crate2.shader = teapotShader;
+
+        var posMat = mat4.create();
+        mat4.identity(posMat);
+
+        mat4.translate(posMat, posMat, [-250, -5, 500]);
+        terrain.positionMatrix = mat4.clone(posMat);
+
+        mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [-14.9331, -3.5, 19.3915]);
+        mat4.rotate(posMat, posMat, degToRad(0), [0, 1, 0]);
+        crate.positionMatrix = mat4.clone(posMat);
+        ourObjects.push(crate);
+
+        mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [16.4274, -3.5, 21.4712]);
+        mat4.rotate(posMat, posMat, degToRad(90), [0, 1, 0]);
+        crate2.positionMatrix = mat4.clone(posMat);
+        ourObjects.push(crate2);
+    }
+
+    function drawScene() {
+        getHTMLVars();
+        drawSceneForShadows();
+        
+        if (terrain != null) {
+        //    drawTerrain2();
+        }
+		drawObjects();
+    }
+
+    function drawSceneForShadows(){
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthFunc(gl.LEQUAL);
+        gl.clearDepth(1.0);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, depthFBO);
+        gl.useProgram(simpleShader);
+        gl.viewport(0, 0, 512, 512);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        // gl.clearColor(1.0, 0.0, 0.0, 1.0);
+        gl.colorMask(false, false, false, false);
+        // gl.cullFace(gl.FRONT);
+
+        lookAt();
+
+        if (terrain != null && terrain.isFinished) {
+            drawSimpleTerrain();
+        }
+        for (var i = 0; i < ourObjects.length; i++) {
+            drawSimpleModel(ourObjects[i]);
+        }
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+        // gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.colorMask(true, true, true, true);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        // gl.cullFace(gl.BACK);
+    }
+
+    function drawSimpleModel(model){
+        gl.uniformMatrix4fv(simpleShader.projection, false, projection);
+        gl.uniformMatrix4fv(simpleShader.camMatrix, false, lightMat);
+        gl.uniformMatrix4fv(simpleShader.mvMatrixUniform, false, model.positionMatrix);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, model.meshData.vertexBuffer);
+        gl.vertexAttribPointer(simpleShader.vertexPositionAttribute, model.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, model.meshData.indexBuffer);
+        gl.drawElements(gl.TRIANGLES, model.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+    }
+
+    function drawSimpleTerrain(){
+        gl.uniformMatrix4fv(simpleShader.projection, false, lightProjection);
+        gl.uniformMatrix4fv(simpleShader.camMatrix, false, lightMat);
+        gl.uniformMatrix4fv(simpleShader.mvMatrixUniform, false, terrain.positionMatrix);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER,  terrain.vertexBuffer);
+        gl.vertexAttribPointer(simpleShader.vertexPositionAttribute,  terrain.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  terrain.indexBuffer);
+        gl.drawElements(gl.TRIANGLES,  terrain.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+    }
+
+    var lightLocation;
+    var ifLighting;
+    var lightColor;
+    var speccColor;
+    var diffuseColor;
+    var specularHighlights;
+    var shininess;
+
+    function drawObjects(){
+        for (var i = 0; i < ourObjects.length; i++) {
+            if(ourObjects[i] != null)
+                drawModel(ourObjects[i]);
+        }
+    }
+
+    function drawModel(model) {
+        gl.useProgram(model.shader);
+        gl.bindBuffer(gl.ARRAY_BUFFER,  model.meshData.vertexBuffer);
+        gl.vertexAttribPointer(model.shader.vertexPositionAttribute,  model.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        if(model.shader.showSpecularHighlightsUniform != null)
+            gl.uniform1i(model.shader.showSpecularHighlightsUniform, specularHighlights);
+        if(model.shader.useLightingUniform != null)
+            gl.uniform1i(model.shader.useLightingUniform, ifLighting);
+        if(model.shader.ambientColorUniform != null)
+            gl.uniform3f(model.shader.ambientColorUniform, lightColor.x, lightColor.y, lightColor.z);
+        if(model.shader.pointLightingLocationUniform != null)
+            gl.uniform3f(model.shader.pointLightingLocationUniform, lightLocation.x, lightLocation.y, lightLocation.z);
+        if(model.shader.pointLightingSpecularColorUniform != null)
+            gl.uniform3f(model.shader.pointLightingSpecularColorUniform, speccColor.x, speccColor.y, speccColor.z);
+        if(model.shader.pointLightingDiffuseColorUniform != null)
+            gl.uniform3f(model.shader.pointLightingDiffuseColorUniform, diffuseColor.x, diffuseColor.y, diffuseColor.z);
+        if(model.shader.materialShininessUniform != null)
+            gl.uniform1f(model.shader.materialShininessUniform, shininess);
+
+        var camMat = keyboardControls.getCamMatrix();
+        gl.uniformMatrix4fv(model.shader.camMatrix, false, camMat);
+        gl.uniformMatrix4fv(model.shader.projection, false, projection);
+
+        if(model.texture != null){
+            gl.activeTexture(gl.TEXTURE0);
+            if (model.texture.isFinished) {
+                    gl.bindTexture(gl.TEXTURE_2D, model.texture);
+                    // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                    // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+                } else{
+                    gl.bindTexture(gl.TEXTURE_2D, oneByOneTexture);
+                }
+            gl.uniform1i(model.shader.samplerUniform, 0);
+        }
+
+        if(! model.meshData.textures.length){
+            gl.disableVertexAttribArray(model.shader.textureCoordAttribute);
+        } else {
+            gl.enableVertexAttribArray(model.shader.textureCoordAttribute);
+            gl.bindBuffer(gl.ARRAY_BUFFER, model.meshData.textureBuffer);
+            gl.vertexAttribPointer(model.shader.textureCoordAttribute,  model.meshData.textureBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        }
+
+        if(model.shader.vertexNormalAttribute != null){
+            gl.bindBuffer(gl.ARRAY_BUFFER,  model.meshData.normalBuffer);
+            gl.vertexAttribPointer(model.shader.vertexNormalAttribute,  model.meshData.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        }
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  model.meshData.indexBuffer);
+        setMatrixUniforms(model);
+        gl.drawElements(gl.TRIANGLES,  model.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+    }
+
+	function drawTerrain2(){
+        gl.useProgram(outerTerrain.shader);
+
+        var camMat = keyboardControls.getCamMatrix();
+        gl.uniformMatrix4fv(terrain.shader.camMatrix, false, camMat);
+        gl.uniformMatrix4fv(terrain.shader.frustum, false, projection);
+        gl.uniformMatrix4fv(terrain.shader.lightMatrix, false, lightTexMat);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, depthTexture);
+        gl.uniform1i(terrain.shader.shadowTex, 0);
+		
+        gl.bindBuffer(gl.ARRAY_BUFFER,  terrain.meshData.vertexBuffer);
+        gl.vertexAttribPointer(terrain.shader.vertexPositionAttribute,  terrain.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  outerTerrain.meshData.indexBuffer);
+        gl.uniformMatrix4fv(terrain.shader.mvMatrixUniform, false, outerTerrain.positionMatrix);
+
+        setMatrixUniforms(terrain);
+
+        gl.drawElements(gl.TRIANGLES,  terrain.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+    }
+
+    var once = false;
+
+    function tick() {
+        requestAnimFrame(tick);
+        keyboardControls.handleKeys(ourObjects);
+        drawScene();
+        keyboardControls.animate();
+    }
+
+    function loadObjects(){
+        OBJ.downloadMeshes({
+            'cubePlusMedium': 'objects/cubePlusMedium.obj',
+			'outerTerrain': 'objects/outerTerrain.obj'
+        }, webGLAddObj);
+    }
+
+    function webGLStart() {
+        var canvas = document.getElementById("lesson14-canvas");
+        initGL(canvas);
+        initTextures();
+        initShaders();
+        createFBOAndTexture();
+        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) { 
+            alert("framebuffer not complete");
+        } else {
+            alert("framebuffer complete");
+        }
+        mat4.perspective(projection, 45, gl.viewportWidth / gl.viewportHeight, 0.1, 200.0);
+        lightMat = mat4.create();
+        lightTexMat = mat4.create();
+        mat4.identity(lightTexMat);
+        loadObjects();
+        keyboardControls = new keyboardControls();
+
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.enable(gl.DEPTH_TEST);
+
+        document.onkeydown = handleKeyDown;
+        document.onkeyup = handleKeyUp;
+
+        tick();
+    }
+
+    function printOnce(object){
+        if(object != null && !once){
+            console.log(object);
+        } else if (!once){
+            console.log("This object was null")
+        }
+            once = true;
+    }
+
+    function getHTMLVars(){
+        specularHighlights = document.getElementById("specular").checked;
+
+        ifLighting = document.getElementById("lighting").checked;
+
+        shininess = parseFloat(document.getElementById("shininess").value);
+
+        if (ifLighting) {
+            lightColor = {x:parseFloat(document.getElementById("ambientR").value), y:parseFloat(document.getElementById("ambientG").value), z:parseFloat(document.getElementById("ambientB").value)};
+
+
+           lightLocation = {x:parseFloat(document.getElementById("lightPositionX").value), y:parseFloat(document.getElementById("lightPositionY").value), z:parseFloat(document.getElementById("lightPositionZ").value)};
+
+            speccColor = {x:parseFloat(document.getElementById("specularR").value), y:parseFloat(document.getElementById("specularG").value), z:parseFloat(document.getElementById("specularB").value)};
+
+            diffuseColor = {x:parseFloat(document.getElementById("diffuseR").value), y:parseFloat(document.getElementById("diffuseG").value), z:parseFloat(document.getElementById("diffuseB").value)};
+        }
+    }
+
+    function lookAt(){
+    var lightLoc = vec3.fromValues(lightLocation.x, lightLocation.y, lightLocation.z);
+    var focal = vec3.fromValues(0, -13.3361, 9.5395);
+    var up = vec3.fromValues(0.0, 1.0, 0.0);
+
+    var x = vec3.create();
+    var test = mat4.create();
+    mat4.identity(test);
+    mat4.identity(lightMat);
+
+    // vec3.subtract(x, focal, lightLoc);
+    // vec3.scale(x, x, 0.25);
+    // vec3.add(lightLoc, lightLoc, x);
+
+    mat4.lookAt(lightMat, lightLoc, focal, up);
+
+    var right = 0.1, left = -0.1, top = 0.1, bottom = -0.1, far = 150.0, near = 0.1;
+
+    mat4.frustum(lightProjection, left, right, bottom, top, near, far);
+    mat4.multiply(lightTexMat, lightProjection, lightMat);
+    mat4.scale(lightTexMat, lightTexMat, [0.5, 0.5, 1.0]);
+    mat4.translate(lightTexMat, lightTexMat, [0.5, 0.5, 0.0]);
+    }
+
+</script>
+
+</head>
+
+<body onload="webGLStart();">
+<!--
+    <canvas id="lesson14-canvas" style="border: none;" width="1000" height="500"></canvas>
+-->
+    <canvas id="lesson14-canvas" style="border: none;" width="512" height="512"></canvas>
+
+    <br/>
+
+    <input type="checkbox" id="specular" checked /> Show specular highlight<br/>
+    <input type="checkbox" id="lighting" checked /> Use lighting<br/>
+
+    <h2>Material:</h2>
+
+    <table style="border: 0; padding: 10px;">
+        <tr>
+            <td><b>Shininess:</b>
+            <td><input type="text" id="shininess" value="32.0" />
+        </tr>
+    </table>
+
+    <h2>Point light:</h2>
+
+    <table style="border: 0; padding: 10px;">
+        <tr>
+            <td><b>Location:</b>
+            <td>X: <input type="text" id="lightPositionX" value="-70.0" />
+            <td>Y: <input type="text" id="lightPositionY" value="16.0" />
+            <td>Z: <input type="text" id="lightPositionZ" value="-30.0" />
+            <!--
+            <td>X: <input type="text" id="lightPositionX" value="0.58" />
+            <td>Y: <input type="text" id="lightPositionY" value="0.58" />
+            <td>Z: <input type="text" id="lightPositionZ" value="-0.58" />
+            -->
+        </tr>
+        <tr>
+            <td><b>Specular colour:</b>
+            <td>R: <input type="text" id="specularR" value="0.8" />
+            <td>G: <input type="text" id="specularG" value="0.8" />
+            <td>B: <input type="text" id="specularB" value="0.8" />
+        </tr>
+        <tr>
+            <td><b>Diffuse colour:</b>
+            <td>R: <input type="text" id="diffuseR" value="0.8" />
+            <td>G: <input type="text" id="diffuseG" value="0.8" />
+            <td>B: <input type="text" id="diffuseB" value="0.8" />
+        </tr>
+    </table>
+
+    <h2>Ambient light:</h2>
+
+    <table style="border: 0; padding: 10px;">
+        <tr>
+            <td><b>Colour:</b>
+            <td>R: <input type="text" id="ambientR" value="0.1" />
+            <td>G: <input type="text" id="ambientG" value="0.1" />
+            <td>B: <input type="text" id="ambientB" value="0.1" />
+        </tr>
+    </table>
+    <br/>
+</body>
+
+</html>

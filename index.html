@@ -19,11 +19,16 @@
     var gl;
     var keyboardControls;
     var lightMat;
+    var lightTexMat;
     function initGL(canvas) {
         try {
-            gl = canvas.getContext("experimental-webgl");
+            gl = canvas.getContext("webgl");
             gl.getExtension('OES_standard_derivatives');
             gl.getExtension('WEBGL_depth_texture');
+            gl.getExtension("OES_element_index_uint");
+            gl.getExtension("MOZ_OES_element_index_uint");
+            gl.getExtension("WEBKIT_OES_element_index_uint");
+            gl.getExtension("WEBGL_depth_texture");
             gl.viewportWidth = canvas.width;
             gl.viewportHeight = canvas.height;
         } catch (e) {
@@ -52,45 +57,98 @@
     var depthFBO;
     var depthTexture;
 
+    function createFBOAndTexture(){
+        depthTexture = gl.createTexture();
+        depthTexture.width = 512;
+        depthTexture.height = 512;
+        gl.bindTexture(gl.TEXTURE_2D, depthTexture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT, depthTexture.width, depthTexture.height, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_SHORT, null);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+
+        depthFBO = gl.createFramebuffer();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, depthFBO);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, depthTexture, 0);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
+
     // function createFBOAndTexture(){
+    //     var size = 512;
+    //     // Create a color texture
+    //     var colorTexture = gl.createTexture();
+    //     gl.bindTexture(gl.TEXTURE_2D, colorTexture);
+    //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    //     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, size, size, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+    //     // Create the depth texture
     //     depthTexture = gl.createTexture();
-    //     depthTexture.width = 521;
-    //     depthTexture.height = 512;
     //     gl.bindTexture(gl.TEXTURE_2D, depthTexture);
     //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    //     gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT, depthTexture.width, depthTexture.height, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_SHORT, null);
+    //     gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT, size, size, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_SHORT, null);
 
     //     depthFBO = gl.createFramebuffer();
     //     gl.bindFramebuffer(gl.FRAMEBUFFER, depthFBO);
+    //     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, colorTexture, 0);
     //     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, depthTexture, 0);
     // }
-    function createFBOAndTexture(){
-        depthFBO=gl.createFramebuffer();
-        gl.bindFramebuffer(gl.FRAMEBUFFER, depthFBO);
 
-        var rb=gl.createRenderbuffer();
-        gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
-        gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16 , 512, 512);
+    // function createFBOAndTexture(){
+    //     depthFBO=gl.createFramebuffer();
+    //     gl.bindFramebuffer(gl.FRAMEBUFFER, depthFBO);
 
-        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT,
-                             gl.RENDERBUFFER, rb);
+    //     var rb=gl.createRenderbuffer();
+    //     gl.bindRenderbuffer(gl.RENDERBUFFER, rb);
+    //     gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16 , 512, 512);
 
-        depthTexture=gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, depthTexture);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 512, 512,
-                0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    //     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, rb);
 
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
-                          gl.TEXTURE_2D, depthTexture, 0);
+    //     depthTexture=gl.createTexture();
+    //     gl.bindTexture(gl.TEXTURE_2D, depthTexture);
+    //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    //     // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    //     // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    //     // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    //     // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    //     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 512, 512, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
 
-        gl.bindTexture(gl.TEXTURE_2D, null);
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    }
+    //     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, depthTexture, 0);
+
+    //     gl.bindTexture(gl.TEXTURE_2D, null);
+    //     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    // }
+
+    // function createFBOAndTexture(){
+    //     var size = 512;
+    //     depthTexture = gl.createTexture();
+    //     gl.bindTexture(gl.TEXTURE_2D, depthTexture);
+    //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    //     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    //     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, size, size, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+    //     // Create the depth buffer
+    //     var depthBuffer = gl.createRenderbuffer();
+    //     gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer);
+    //     gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, size, size);
+
+    //     // Create the framebuffer
+    //     depthFBO = gl.createFramebuffer();
+    //     gl.bindFramebuffer(gl.FRAMEBUFFER, depthFBO);
+    //     gl.bindTexture(gl.TEXTURE_2D, depthTexture);
+    //     gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthBuffer);
+    //     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, depthTexture, 0);
+    // }
 
     function setSimpleShaderVars(){
         gl.useProgram(simpleShader);
@@ -100,6 +158,7 @@
 
         simpleShader.projection = gl.getUniformLocation(simpleShader, "projection");
         simpleShader.camMatrix = gl.getUniformLocation(simpleShader, "camMatrix");
+        teapotShader.mvMatrixUniform = gl.getUniformLocation(teapotShader, "uMVMatrix");
     }
 
     function setTeapotShaderProgramVars() {
@@ -122,8 +181,8 @@
         teapotShader.materialShininessUniform = gl.getUniformLocation(teapotShader, "uMaterialShininess");
         teapotShader.showSpecularHighlightsUniform = gl.getUniformLocation(teapotShader, "uShowSpecularHighlights");
         teapotShader.useLightingUniform = gl.getUniformLocation(teapotShader, "uUseLighting");
-        teapotShader.ambientColorUniform = gl.getUniformLocation(teapotShader, "uAmbientColor");
         teapotShader.pointLightingLocationUniform = gl.getUniformLocation(teapotShader, "uPointLightingLocation");
+        teapotShader.ambientColorUniform = gl.getUniformLocation(teapotShader, "uAmbientColor");
         teapotShader.pointLightingSpecularColorUniform = gl.getUniformLocation(teapotShader, "uPointLightingSpecularColor");
         teapotShader.pointLightingDiffuseColorUniform = gl.getUniformLocation(teapotShader, "uPointLightingDiffuseColor");
     }
@@ -162,7 +221,7 @@
         terrainShader.nMatrixUniform = gl.getUniformLocation(terrainShader, "uNMatrix");
         terrainShader.shadowTex = gl.getUniformLocation(terrainShader, "shadowTex");
         terrainShader.lightMatrix = gl.getUniformLocation(terrainShader, "lightMatrix");
-        terrainShader.lightProjection = gl.getUniformLocation(terrainShader, "lightProjection");
+        // terrainShader.lightProjection = gl.getUniformLocation(terrainShader, "lightProjection");
         terrainShader.pointLightingLocationUniform = gl.getUniformLocation(terrainShader, "uPointLightingLocation");
     }
 	
@@ -209,9 +268,6 @@
         billBoardShaders.vertexPositionAttribute = gl.getAttribLocation(billBoardShaders, "aVertexPosition");
         gl.enableVertexAttribArray(billBoardShaders.vertexPositionAttribute);
 
-        //billBoardShaders.vertexNormalAttribute = gl.getAttribLocation(billBoardShaders, "aVertexNormal");
-        //gl.enableVertexAttribArray(billBoardShaders.vertexNormalAttribute);
-
         billBoardShaders.textureCoordAttribute = gl.getAttribLocation(billBoardShaders, "aTextureCoord");
         gl.enableVertexAttribArray(billBoardShaders.textureCoordAttribute);
 
@@ -235,15 +291,14 @@
     }
 
     function initShaders() {
-
         teapotShader = utils.addShaderProg(gl, 'teapot.vertex', 'teapot.frag');
-        terrainShader = utils.addShaderProg(gl, 'terrain.vertex', 'terrain.frag');
+        terrainShader = utils.addShaderProg(gl, 'terrainDepth.vertex', 'terrainDepth.frag');
 		outerTerrainShader = utils.addShaderProg(gl, 'terrain2.vertex', 'terrain2.frag');
 		skyBoxShaders = utils.addShaderProg(gl, 'skyBox.vertex', 'skyBox.frag');
 		billBoardShaders = utils.addShaderProg(gl, 'billBoard.vertex', 'billBoard.frag');
         crateShader = utils.addShaderProg(gl, "crateShader.vertex", "crateShader.frag");
         lightSourceShaders = utils.addShaderProg(gl, "lightSource.vertex", "lightSource.frag");
-        simpleShader = utils.addShaderProg(gl, "plain.vertex", "plain.frag");
+        simpleShader = utils.addShaderProg(gl, "plainDepth.vertex", "plainDepth.frag");
         setTeapotShaderProgramVars();
         setTerrainShaderProgramVars();
 		setouterTerrainShaderProgramVars();
@@ -252,7 +307,6 @@
         setCrateShaderProgramVars();
         setLightSourceShaderVars();
         setSimpleShaderVars();
-
     }
 
     function handleLoadedTexture(texture) {
@@ -316,8 +370,6 @@
         terrainHeightMap.src = "textures/fft-terrain.jpg";
 		
         // terrainHeightMap.src = "textures/44-terrain.jpg";
-		
-		
     }
 
     function setUpTextures(textureVarName, picture){
@@ -337,9 +389,7 @@
     function setMatrixUniforms(model) {
         if (model.movable) {
             var temp = keyboardControls.getObjPos();
-            // console.log(temp)
             mat4.multiply(temp, model.positionMatrix, temp);
-            // console.log(temp)
             gl.uniformMatrix4fv(model.shader.mvMatrixUniform, false, temp);
         }else{
             gl.uniformMatrix4fv(model.shader.mvMatrixUniform, false, model.positionMatrix);
@@ -377,265 +427,17 @@
 		OBJ.initMeshBuffers(gl, ourMeshes.billBoard);
 		OBJ.initMeshBuffers(gl, ourMeshes.outerTerrain);
         OBJ.initMeshBuffers(gl, ourMeshes.lamp);
-        createBillboard();
+        // createBillboard();
 		createObjects();
 		
-    }
-
-    function createObjects(){
-        var teapot1, teapot2, eHouse, skyBox, cloudBox1, cloudBox2, cloudBox3, crate, crate2, crate3, crate4, lightSource1, lightSource2, lightSource3;
-
-        teapot1 = {name:"teapot1"};
-        teapot1.meshData = ourMeshes.teapot;
-        teapot1.texture = galvanizedTexture;
-        teapot1.hasBumpMap = false;
-		teapot1.radius = 10;
-        teapot1.movable = false;
-        teapot1.shader = teapotShader;
-
-        teapot2 = {name:"teapot2"};
-        teapot2.meshData = ourMeshes.teapot;
-        teapot2.texture = earthTexture;
-        teapot2.hasBumpMap = false;
-		teapot2.radius = 10;
-        teapot2.movable = false;
-        teapot2.shader = teapotShader;
-
-        cloudBox1 = {name:"cloudBox1"};
-        cloudBox1.meshData = ourMeshes.skyBox;
-        cloudBox1.texture = cloudTexture1;
-        cloudBox1.movable = false;
-        cloudBox1.shader = skyBoxShaders;
-
-        cloudBox2 = {name:"cloudBox2"};
-        cloudBox2.meshData = ourMeshes.skyBox;
-        cloudBox2.texture = cloudTexture2;
-        cloudBox2.movable = false;
-        cloudBox2.shader = skyBoxShaders;
-
-        cloudBox3 = {name:"cloudBox3"};
-        cloudBox3.meshData = ourMeshes.skyBox;
-        cloudBox3.texture = cloudTexture3;
-        cloudBox3.movable = false;
-        cloudBox3.shader = skyBoxShaders;
-
-        skyBox = {name:"skyBox"};
-        skyBox.meshData = ourMeshes.skyBox;
-        skyBox.texture = skyTexture;
-        skyBox.movable = false;
-        skyBox.shader = skyBoxShaders;
-
-        eHouse = {name: "eHouse"};
-        eHouse.meshData = ourMeshes.eHouse;
-        eHouse.texture = galvanizedTexture;
-        eHouse.hasBumpMap = false;
-        eHouse.radius = 1;
-
-		outerTerrain = {name:"outerTerrain"};
-		outerTerrain.meshData = ourMeshes.outerTerrain;
-		outerTerrain.radius = 1;
-		outerTerrain.shader = outerTerrainShader;
-		outerTerrain.texture = grassTexture;
-
-        eHouse.movable = false;
-        eHouse.shader = teapotShader;
-
-        crate = {name: "crate"};
-        crate.meshData = ourMeshes.cubePlusMedium;
-        crate.texture = crateTexture;
-        crate.hasBumpMap = true;
-        crate.radius = 1;
-        crate.movable = false;
-        crate.shader = crateShader;
-
-        crate2 = {name: "crate2"};
-        crate2.meshData = ourMeshes.rectanglePlusMedium;
-        crate2.texture = crateTexture;
-        crate2.hasBumpMap = true;
-        crate2.radius = 1;
-        crate2.movable = false;
-        crate2.shader = crateShader;
-
-
-        crate3 = {name: "crate3"};
-        crate3.meshData = ourMeshes.rectanglePlusMedium2;
-        crate3.texture = crateTexture;
-        crate3.bumpMap = noiseBumpMap;
-        crate3.hasBumpMap = true;
-        crate3.radius = 1;
-        crate3.movable = false;
-        crate3.shader = crateShader;
-
-        crate4 = {name: "crate4"};
-        crate4.meshData = ourMeshes.cubePlusMedium;
-        crate4.texture = crateTexture;
-        crate4.bumpMap = noiseBumpMap;
-        crate4.hasBumpMap = true;
-        crate4.radius = 1;
-        crate4.movable = false;
-        crate4.shader = crateShader;
-
-        lightSource1 = {name: "lightSource1"};
-        lightSource1.meshData = ourMeshes.lamp;
-        lightSource1.texture = crateTexture;
-        lightSource1.radius = 0.5;
-        lightSource1.movable = false;
-        lightSource1.shader = lightSourceShaders;
-
-        lightSource2 = {name: "lightSource2"};
-        lightSource2.meshData = ourMeshes.lamp;
-        lightSource2.texture = crateTexture;
-        lightSource2.radius = 0.5;
-        lightSource2.movable = false;
-        lightSource2.shader = lightSourceShaders;
-
-        lightSource3 = {name: "lightSource3"};
-        lightSource3.meshData = ourMeshes.lamp;
-        lightSource3.texture = crateTexture;
-        lightSource3.radius = 0.5;
-        lightSource3.movable = false;
-        lightSource3.shader = lightSourceShaders;
-
-
-        var posMat = mat4.create();
-        mat4.identity(posMat);
-
-        skyBox.positionMatrix = mat4.clone(posMat);
-        cloudBox1.positionMatrix = mat4.clone(posMat);
-        cloudBox2.positionMatrix = mat4.clone(posMat);
-        cloudBox3.positionMatrix = mat4.clone(posMat);
-        cloudBox1.rotVec = {x:1, y:1, z:1};
-        cloudBox1.rotSpeed = 0.0002;
-        cloudBox2.rotVec = {x:1, y:-1, z:-1};
-        cloudBox2.rotSpeed = 0.0004;
-        cloudBox3.rotVec = {x:-1, y:-1, z:1};
-        cloudBox3.rotSpeed = 0.0003;
-
-        skyBoxes.push(skyBox);
-        skyBoxes.push(cloudBox3);
-        skyBoxes.push(cloudBox2);
-        skyBoxes.push(cloudBox1);
-
-        mat4.identity(posMat);
-        mat4.translate(posMat, posMat, [-10, 0, -40]);
-        mat4.rotate(posMat, posMat, degToRad(23.4), [1, 0, -1]);
-        mat4.rotate(posMat, posMat, degToRad(teapotAngle), [0, 1, 0]);
-        teapot1.positionMatrix = mat4.clone(posMat);
-        //ourObjects.push(teapot1);
-
-        mat4.identity(posMat);
-        mat4.translate(posMat, posMat, [10, 0, -40]);
-        mat4.rotate(posMat, posMat, degToRad(-23.4), [1, 0, -1]);
-        mat4.rotate(posMat, posMat, degToRad(-teapotAngle), [0, 1, 0]);
-        teapot2.positionMatrix = mat4.clone(posMat);
-        //ourObjects.push(teapot2);
-	
-		mat4.identity(posMat);
-        mat4.translate(posMat, posMat, [-250, -16, 500]);
-        outerTerrain.positionMatrix = mat4.clone(posMat);
-    
-        mat4.identity(posMat);
-        mat4.translate(posMat, posMat, [-10, -15, 30]);
-        mat4.rotate(posMat, posMat, degToRad(0), [0, 1, 0]);
-        eHouse.positionMatrix = mat4.clone(posMat);
-        ourObjects.push(eHouse);
-
-        mat4.identity(posMat);
-        mat4.translate(posMat, posMat, [-10.6658, -8.7546, 16.8532]);
-        lightSource1.positionMatrix = mat4.clone(posMat);
-        houseLightSources.push(lightSource1);
-
-        mat4.identity(posMat);
-        mat4.translate(posMat, posMat, [10.8099, -8.7546, 19.33]);
-        lightSource2.positionMatrix = mat4.clone(posMat);
-        houseLightSources.push(lightSource2);
-
-        mat4.identity(posMat);
-        mat4.translate(posMat, posMat, [0, -8.7546, 4]);
-        lightSource3.positionMatrix = mat4.clone(posMat);
-        houseLightSources.push(lightSource3);
-
-        mat4.identity(posMat);
-        mat4.translate(posMat, posMat, [-14.9331, -13.3361, 19.3915]);
-        mat4.rotate(posMat, posMat, degToRad(0), [0, 1, 0]);
-        crate.positionMatrix = mat4.clone(posMat);
-        crate.lightSources = [];
-        crate.lightSources.push(lightSource1);
-        ourObjects.push(crate);
-
-        mat4.identity(posMat);
-        mat4.translate(posMat, posMat, [16.4274, -13.3361, 21.4712]);
-        mat4.rotate(posMat, posMat, degToRad(90), [0, 1, 0]);
-        crate2.positionMatrix = mat4.clone(posMat);
-        crate2.lightSources = [];
-        crate2.lightSources.push(lightSource2);
-        ourObjects.push(crate2);
-
-        mat4.identity(posMat);
-        mat4.translate(posMat, posMat, [-5.2840, -11.8361, 9.5395]);
-        mat4.rotate(posMat, posMat, degToRad(180), [1, 1, 0]);
-        mat4.rotate(posMat, posMat, 1.06, [1, 0, 0]);
-        crate3.positionMatrix = mat4.clone(posMat);
-        crate3.lightSources = [];
-        crate3.lightSources.push(lightSource3);
-        ourObjects.push(crate3);
-
-        mat4.identity(posMat);
-        mat4.translate(posMat, posMat, [0, -13.3361, 9.5395]);
-        crate4.positionMatrix = mat4.clone(posMat);
-        crate4.lightSources = [];
-        crate4.lightSources.push(lightSource1);
-        crate4.lightSources.push(lightSource2);
-        crate4.lightSources.push(lightSource3);
-        ourObjects.push(crate4);
-
-		//createBillboard();
     }
 	
 	var billBoards = [];
 	function createBillboard(){
-	
 		var billPos = mat4.create();
 		var newPos = mat4.create();
 		mat4.identity(billPos);
-		mat4.translate(billPos, billPos, [0, -16, 0]);
-		for (var i = 0; i < 10; i++) {
-			newPos = mat4.clone(billPos);
-			var random = Math.random() *50;
-			if(Math.random < 0.5){
-			mat4.translate(newPos, newPos, [200+random, 0,i*10]);
-			}else{
-			mat4.translate(newPos, newPos, [200-random, 0,i*10]);
-			}
-			 mat4.rotate(newPos, newPos, degToRad(90), [0, 1, 0]);
-			
-		  // newPos = mat4.clone(billPos);
-		   var billBoard = {name:"billBoard"};
-		  
-			billBoard.meshData = ourMeshes.billBoard;
-			billBoard.positionMatrix = newPos;
-			billBoard.texture = billBoardTexture;
-			billBoard.shader = billBoardShaders;
-			billBoards.push(billBoard);
-        }
-		
-			for (var i = 0; i < 10; i++) {
-			newPos = mat4.clone(billPos);
-			var random = Math.random() *50;
-			if(Math.random < 0.5){
-			mat4.translate(newPos, newPos, [i*10, 0,200+random]);
-			}else{
-			mat4.translate(newPos, newPos, [i*10, 0,200-random]);
-			}
-			 
-		   var billBoard = {name:"billBoard"};
-		  
-			billBoard.meshData = ourMeshes.billBoard;
-			billBoard.positionMatrix = newPos;
-			billBoard.texture = billBoardTexture;
-			billBoard.shader = billBoardShaders;
-			billBoards.push(billBoard);
-        }
+		mat4.translate(billPos, billPos, [0, -15, 0]);
 			for (var i = 0; i < 10; i++) {
 			newPos = mat4.clone(billPos);
 			var random = Math.random() *50;
@@ -644,9 +446,7 @@
 			}else{
 			mat4.translate(newPos, newPos, [-200-random, 0,i*10]);
 			}
-			 mat4.rotate(newPos, newPos, degToRad(-90), [0, 1, 0]);
-			
-		  // newPos = mat4.clone(billPos);
+
 		   var billBoard = {name:"billBoard"};
 		  
 			billBoard.meshData = ourMeshes.billBoard;
@@ -655,28 +455,19 @@
 			billBoard.shader = billBoardShaders;
 			billBoards.push(billBoard);
         }
-		
-		
 	}
-
-    var teapotAngle = 180;
 
     function drawScene() {
         getHTMLVars();
-        gl.bindFramebuffer(gl.FRAMEBUFFER, depthFBO);
-        drawSceneForShadows();
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        gl.clearColor(0.0, 0.0, 0.0, 1.0);
-        gl.cullFace(gl.BACK);
 
-        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        
+        drawSceneForShadows();
+
 		drawSkyBoxes();
+
         if (outerTerrain != null) {
-            drawTerrain2();
+        //    drawTerrain2();
         }
-		drawBillBoards();
+		// drawBillBoards();
 		drawObjects();
 
         if (terrain != null && terrain.isFinished) {
@@ -685,21 +476,41 @@
     }
 
     function drawSceneForShadows(){
+        gl.enable(gl.DEPTH_TEST);
+        // gl.depthFunc(gl.LEQUAL);
+        // gl.clearDepth(1.0);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, depthFBO);
+        gl.useProgram(simpleShader);
         gl.viewport(0, 0, 512, 512);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        gl.clearColor(1.0, 0.0, 0.0, 1.0);
+        // gl.clearColor(1.0, 0.0, 0.0, 1.0);
+        gl.colorMask(false, false, false, false);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, depthTexture);
         gl.cullFace(gl.FRONT);
 
-        gl.useProgram(simpleShader);
         lookAt();
-        for (var i = 0; i < ourObjects.length; i++) {
-           drawSimpleModel(ourObjects[i]);
+
+        if (terrain != null && terrain.isFinished) {
+            drawSimpleTerrain();
         }
+        for (var i = 0; i < ourObjects.length; i++) {
+            if(ourObjects[i].name == "eHouse")
+                drawSimpleModel(ourObjects[i]);
+        }
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+        // gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.colorMask(true, true, true, true);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.cullFace(gl.BACK);
     }
 
     function drawSimpleModel(model){
         gl.uniformMatrix4fv(simpleShader.projection, false, lightProjection);
         gl.uniformMatrix4fv(simpleShader.camMatrix, false, lightMat);
+        gl.uniformMatrix4fv(simpleShader.mvMatrixUniform, false, model.positionMatrix);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, model.meshData.vertexBuffer);
         gl.vertexAttribPointer(simpleShader.vertexPositionAttribute, model.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
@@ -708,12 +519,25 @@
         gl.drawElements(gl.TRIANGLES, model.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
     }
 
+    function drawSimpleTerrain(){
+        gl.uniformMatrix4fv(simpleShader.projection, false, lightProjection);
+        gl.uniformMatrix4fv(simpleShader.camMatrix, false, lightMat);
+        gl.uniformMatrix4fv(simpleShader.mvMatrixUniform, false, terrain.positionMatrix);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER,  terrain.vertexBuffer);
+        gl.vertexAttribPointer(simpleShader.vertexPositionAttribute,  terrain.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  terrain.indexBuffer);
+        gl.drawElements(gl.TRIANGLES,  terrain.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+    }
+
     var lightLocation;
     var ifLighting;
     var lightColor;
     var speccColor;
     var diffuseColor;
     var specularHighlights;
+    var ifNotCandy;
     var shininess;
 
     function drawObjects(){
@@ -737,6 +561,7 @@
         posVec[2] = pos[14]/length;
         return posVec;
     }
+
 	function drawBillBoards(){
 		gl.useProgram(billBoardShaders);
 		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -744,7 +569,6 @@
 		
         gl.disable(gl.DEPTH_TEST);
 		for (var i = 0; i < billBoards.length; i++) {
-		//for (var i = 0; i < 1; i++) {
             if(billBoards[i] != null){
                 drawBillboard(billBoards[i]);
             }
@@ -760,29 +584,21 @@
 		var directionFromModel = getModelDirection(board.positionMatrix, camMat);
 		
 		var total = mat4.create();
-		//total = mat4.multiply(total, camMat, board.positionMatrix);
  
-		directionFromModel[1] = 0; //zero the y
-		
-		
-		var cosa = directionFromModel[2];
+		directionFromModel[1] = 0;
+
+		var cosa = directionFromModel[0];
+        var sina = directionFromModel[2];
 		var direction = vec3.create();
 		var lookAt = vec3.create();
 		lookAt[2] = -1;
 		vec3.cross(direction, directionFromModel,lookAt);
 		
-		var rotation = Math.acos(cosa)*180/Math.PI;
-		rotation = degToRad(rotation);
+		var rotation = Math.atan(sina,cosa);
+		
 		var totRot = mat4.create();
 		mat4.identity(totRot);
-		
-		if(direction[1] < 0 ){
-		// console.log("rot was: "+rotation);
-		rotation = Math.PI - rotation;
-		// console.log("and is: "+rotation);
-		}
-		
-		// console.log("should rotate "+rotation);
+
 		totRot[0] = Math.cos(rotation);
 		totRot[2] = -Math.sin(rotation);
 		totRot[8]= Math.sin(rotation);;
@@ -819,7 +635,7 @@
         gl.drawElements(gl.TRIANGLES,  board.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 
 	}
-	
+
     function drawModel(model) {
         gl.useProgram(model.shader);
         gl.bindBuffer(gl.ARRAY_BUFFER,  model.meshData.vertexBuffer);
@@ -862,8 +678,6 @@
             gl.activeTexture(gl.TEXTURE0);
             if (model.texture.isFinished) {
                     gl.bindTexture(gl.TEXTURE_2D, model.texture);
-                    // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-                    // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
                 } else{
                     gl.bindTexture(gl.TEXTURE_2D, oneByOneTexture);
                 }
@@ -893,8 +707,8 @@
         var camMat = keyboardControls.getCamMatrix();
         gl.uniformMatrix4fv(terrain.shader.camMatrix, false, camMat);
         gl.uniformMatrix4fv(terrain.shader.projection, false, projection);
-        gl.uniformMatrix4fv(terrain.shader.lightMatrix, false, lightMat);
-        gl.uniformMatrix4fv(terrain.shader.lightProjection, false, lightProjection);
+        gl.uniformMatrix4fv(terrain.shader.lightMatrix, false, lightTexMat);
+        // gl.uniformMatrix4fv(terrain.shader.lightProjection, false, lightProjection);
         gl.uniform3f(terrain.shader.pointLightingLocationUniform, lightLocation.x, lightLocation.y, lightLocation.z);
 
         gl.activeTexture(gl.TEXTURE0);
@@ -912,27 +726,26 @@
         gl.bindBuffer(gl.ARRAY_BUFFER,  terrain.vertexBuffer);
         gl.vertexAttribPointer(terrain.shader.vertexPositionAttribute,  terrain.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-        gl.bindBuffer(gl.ARRAY_BUFFER,  terrain.colorBuffer);
-        gl.vertexAttribPointer(terrain.shader.vertexColorAttribute,  terrain.colorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        if(ifNotCandy){
+            gl.bindBuffer(gl.ARRAY_BUFFER,  terrain.colorBuffer);
+            gl.vertexAttribPointer(terrain.shader.vertexColorAttribute,  terrain.colorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        } else {
+            gl.bindBuffer(gl.ARRAY_BUFFER,  terrain.colorCandyBuffer);
+            gl.vertexAttribPointer(terrain.shader.vertexColorAttribute,  terrain.colorCandyBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        }
 
         gl.bindBuffer(gl.ARRAY_BUFFER,  terrain.normalBuffer);
         gl.vertexAttribPointer(terrain.shader.vertexNormalAttribute,  terrain.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  terrain.indexBuffer);
 
-        // gl.uniformMatrix4fv(terrainShader.mvMatrixUniform, false, terrain.positionMatrix);
         setMatrixUniforms(terrain);
 
         gl.drawElements(gl.TRIANGLES,  terrain.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
     }
+
 	function drawTerrain2(){
         gl.useProgram(outerTerrain.shader);
-	/**	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-		**/
-		
         var camMat = keyboardControls.getCamMatrix();
         gl.uniformMatrix4fv(outerTerrain.shader.camMatrix, false, camMat);
         gl.uniformMatrix4fv(outerTerrain.shader.frustum, false, projection);
@@ -956,15 +769,9 @@
         gl.bindBuffer(gl.ARRAY_BUFFER,  outerTerrain.meshData.vertexBuffer);
         gl.vertexAttribPointer(outerTerrain.shader.vertexPositionAttribute,  outerTerrain.meshData.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-       // gl.bindBuffer(gl.ARRAY_BUFFER,  outerTerrain.meshData.colorBuffer);
-        //gl.vertexAttribPointer(outerTerrain.shader.vertexColorAttribute,  outerTerrain.meshData.colorBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-       // gl.bindBuffer(gl.ARRAY_BUFFER,  outerTerrain.meshData.normalBuffer);
-        //gl.vertexAttribPointer(outerTerrain.shader.vertexNormalAttribute,  outerTerrain.meshData.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,  outerTerrain.meshData.indexBuffer);
 
-         gl.uniformMatrix4fv(outerTerrain.shader.mvMatrixUniform, false, outerTerrain.positionMatrix);
+        gl.uniformMatrix4fv(outerTerrain.shader.mvMatrixUniform, false, outerTerrain.positionMatrix);
         setMatrixUniforms(outerTerrain);
 
         gl.drawElements(gl.TRIANGLES,  outerTerrain.meshData.indexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
@@ -1058,8 +865,15 @@
         initTextures();
         initShaders();
         createFBOAndTexture();
-        mat4.perspective(projection, 45, gl.viewportWidth / gl.viewportHeight, 0.1, 200.0);
+        if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) != gl.FRAMEBUFFER_COMPLETE) { 
+            alert("framebuffer not complete");
+        } else {
+            alert("framebuffer complete");
+        }
+        mat4.perspective(projection, 45, gl.viewportWidth / gl.viewportHeight, 0.1, 300.0);
         lightMat = mat4.create();
+        lightTexMat = mat4.create();
+        mat4.identity(lightTexMat);
         loadObjects();
         keyboardControls = new keyboardControls();
 
@@ -1084,6 +898,8 @@
     function getHTMLVars(){
         specularHighlights = document.getElementById("specular").checked;
 
+        ifNotCandy = document.getElementById("candy").checked;
+
         ifLighting = document.getElementById("lighting").checked;
 
         shininess = parseFloat(document.getElementById("shininess").value);
@@ -1103,35 +919,231 @@
     function lookAt(){
     var lightLoc = vec3.fromValues(lightLocation.x, lightLocation.y, lightLocation.z);
     var focal = vec3.fromValues(0, -13.3361, 9.5395);
-    var up = vec3.fromValues(0, 1, 0);
+    var up = vec3.fromValues(0.0, 1.0, 0.0);
 
-    var n = vec3.create(), u = vec3.create(), v = vec3.create();
+    var x = vec3.create();
+    var test = mat4.create();
+    mat4.identity(test);
+    mat4.identity(lightMat);
 
-    vec3.subtract(n, lightLoc, focal);
-    vec3.normalize(n, n);
-    vec3.cross(u, up, n)
-    vec3.normalize(u, u);
-    vec3.cross(v, n, u);
+    // vec3.subtract(x, focal, lightLoc);
+    // vec3.scale(x, x, 0.25);
+    // vec3.add(lightLoc, lightLoc, x);
 
-    var rot = mat4.create();
-    mat4.identity(rot);
-    var trans = mat4.clone(rot);
-    rot[0] = u[0];
-    rot[1] = u[1];
-    rot[2] = u[2];
+    mat4.lookAt(lightMat, lightLoc, focal, up);
 
-    rot[3] = v[0];
-    rot[4] = v[1];
-    rot[5] = v[2];
+    var right = 0.1, left = -0.1, top = 0.1, bottom = -0.1, far = 150.0, near = 0.1;
 
-    rot[6] = n[0];
-    rot[7] = n[1];
-    rot[8] = n[2];
+    mat4.frustum(lightProjection, left, right, bottom, top, near, far);
+    mat4.multiply(lightTexMat, lightProjection, lightMat);
+    mat4.scale(lightTexMat, lightTexMat, [0.5, 0.5, 1.0]);
+    mat4.translate(lightTexMat, lightTexMat, [0.5, 0.5, 0.0]);
+    }
 
-    mat4.translate(trans, trans, [-lightLocation.x, -lightLocation.y, -lightLocation.z]);
-    mat4.multiply(lightMat, rot, trans);
-    mat4.ortho(lightProjection, -0.5, 0.5, -0.5, 0.5, 1.0, 200);
-    // lightMat is now the lookAt matrix
+    function createObjects(){
+        var teapot1, teapot2, eHouse, skyBox, cloudBox1, cloudBox2, cloudBox3, crate, crate2, crate3, crate4, lightSource1, lightSource2, lightSource3;
+
+        teapot1 = {name:"teapot1"};
+        teapot1.meshData = ourMeshes.teapot;
+        teapot1.texture = galvanizedTexture;
+        teapot1.hasBumpMap = false;
+        teapot1.radius = 10;
+        teapot1.movable = false;
+        teapot1.shader = teapotShader;
+
+        teapot2 = {name:"teapot2"};
+        teapot2.meshData = ourMeshes.teapot;
+        teapot2.texture = earthTexture;
+        teapot2.hasBumpMap = false;
+        teapot2.radius = 10;
+        teapot2.movable = false;
+        teapot2.shader = teapotShader;
+
+        cloudBox1 = {name:"cloudBox1"};
+        cloudBox1.meshData = ourMeshes.skyBox;
+        cloudBox1.texture = cloudTexture1;
+        cloudBox1.movable = false;
+        cloudBox1.shader = skyBoxShaders;
+
+        cloudBox2 = {name:"cloudBox2"};
+        cloudBox2.meshData = ourMeshes.skyBox;
+        cloudBox2.texture = cloudTexture2;
+        cloudBox2.movable = false;
+        cloudBox2.shader = skyBoxShaders;
+
+        cloudBox3 = {name:"cloudBox3"};
+        cloudBox3.meshData = ourMeshes.skyBox;
+        cloudBox3.texture = cloudTexture3;
+        cloudBox3.movable = false;
+        cloudBox3.shader = skyBoxShaders;
+
+        skyBox = {name:"skyBox"};
+        skyBox.meshData = ourMeshes.skyBox;
+        skyBox.texture = skyTexture;
+        skyBox.movable = false;
+        skyBox.shader = skyBoxShaders;
+
+        eHouse = {name: "eHouse"};
+        eHouse.meshData = ourMeshes.eHouse;
+        eHouse.texture = galvanizedTexture;
+        eHouse.hasBumpMap = false;
+        eHouse.radius = 1;
+        eHouse.movable = false;
+        eHouse.shader = teapotShader;
+
+        outerTerrain = {name:"outerTerrain"};
+        outerTerrain.meshData = ourMeshes.outerTerrain;
+        outerTerrain.radius = 1;
+        outerTerrain.shader = outerTerrainShader;
+        outerTerrain.texture = grassTexture;
+
+
+        crate = {name: "crate"};
+        crate.meshData = ourMeshes.cubePlusMedium;
+        crate.texture = crateTexture;
+        crate.hasBumpMap = true;
+        crate.radius = 1;
+        crate.movable = false;
+        crate.shader = crateShader;
+
+        crate2 = {name: "crate2"};
+        crate2.meshData = ourMeshes.rectanglePlusMedium;
+        crate2.texture = crateTexture;
+        crate2.hasBumpMap = true;
+        crate2.radius = 1;
+        crate2.movable = false;
+        crate2.shader = crateShader;
+
+        crate3 = {name: "crate3"};
+        crate3.meshData = ourMeshes.rectanglePlusMedium2;
+        crate3.texture = crateTexture;
+        crate3.bumpMap = noiseBumpMap;
+        crate3.hasBumpMap = true;
+        crate3.radius = 1;
+        crate3.movable = false;
+        crate3.shader = crateShader;
+
+        crate4 = {name: "crate4"};
+        crate4.meshData = ourMeshes.cubePlusMedium;
+        crate4.texture = depthTexture;
+        crate4.bumpMap = noiseBumpMap;
+        crate4.hasBumpMap = true;
+        crate4.radius = 1;
+        crate4.movable = false;
+        crate4.shader = crateShader;
+
+        lightSource1 = {name: "lightSource1"};
+        lightSource1.meshData = ourMeshes.lamp;
+        lightSource1.texture = crateTexture;
+        lightSource1.radius = 0.5;
+        lightSource1.movable = false;
+        lightSource1.shader = lightSourceShaders;
+
+        lightSource2 = {name: "lightSource2"};
+        lightSource2.meshData = ourMeshes.lamp;
+        lightSource2.texture = crateTexture;
+        lightSource2.radius = 0.5;
+        lightSource2.movable = false;
+        lightSource2.shader = lightSourceShaders;
+
+        lightSource3 = {name: "lightSource3"};
+        lightSource3.meshData = ourMeshes.lamp;
+        lightSource3.texture = crateTexture;
+        lightSource3.radius = 0.5;
+        lightSource3.movable = false;
+        lightSource3.shader = lightSourceShaders;
+
+        var posMat = mat4.create();
+        mat4.identity(posMat);
+
+        skyBox.positionMatrix = mat4.clone(posMat);
+        cloudBox1.positionMatrix = mat4.clone(posMat);
+        cloudBox2.positionMatrix = mat4.clone(posMat);
+        cloudBox3.positionMatrix = mat4.clone(posMat);
+        cloudBox1.rotVec = {x:1, y:1, z:1};
+        cloudBox1.rotSpeed = 0.0002;
+        cloudBox2.rotVec = {x:1, y:-1, z:-1};
+        cloudBox2.rotSpeed = 0.0004;
+        cloudBox3.rotVec = {x:-1, y:-1, z:1};
+        cloudBox3.rotSpeed = 0.0003;
+
+        skyBoxes.push(skyBox);
+        skyBoxes.push(cloudBox3);
+        skyBoxes.push(cloudBox2);
+        skyBoxes.push(cloudBox1);
+
+        mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [-10, 0, -40]);
+        mat4.rotate(posMat, posMat, degToRad(23.4), [1, 0, -1]);
+        mat4.rotate(posMat, posMat, degToRad(180), [0, 1, 0]);
+        teapot1.positionMatrix = mat4.clone(posMat);
+        //ourObjects.push(teapot1);
+
+        mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [10, 0, -40]);
+        mat4.rotate(posMat, posMat, degToRad(-23.4), [1, 0, -1]);
+        mat4.rotate(posMat, posMat, degToRad(180), [0, 1, 0]);
+        teapot2.positionMatrix = mat4.clone(posMat);
+        //ourObjects.push(teapot2);
+    
+        mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [-250, -16, 500]);
+        outerTerrain.positionMatrix = mat4.clone(posMat);
+    
+        mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [-10, -15, 30]);
+        mat4.rotate(posMat, posMat, degToRad(0), [0, 1, 0]);
+        eHouse.positionMatrix = mat4.clone(posMat);
+        ourObjects.push(eHouse);
+
+        mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [-10.6658, -8.7546, 16.8532]);
+        lightSource1.positionMatrix = mat4.clone(posMat);
+        houseLightSources.push(lightSource1);
+
+        mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [10.8099, -8.7546, 19.33]);
+        lightSource2.positionMatrix = mat4.clone(posMat);
+        houseLightSources.push(lightSource2);
+
+        mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [0, -8.7546, 4]);
+        lightSource3.positionMatrix = mat4.clone(posMat);
+        houseLightSources.push(lightSource3);
+
+        mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [-14.9331, -13.3361, 19.3915]);
+        mat4.rotate(posMat, posMat, degToRad(0), [0, 1, 0]);
+        crate.positionMatrix = mat4.clone(posMat);
+        crate.lightSources = [];
+        crate.lightSources.push(lightSource1);
+        ourObjects.push(crate);
+
+        mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [16.4274, -13.3361, 21.4712]);
+        mat4.rotate(posMat, posMat, degToRad(90), [0, 1, 0]);
+        crate2.positionMatrix = mat4.clone(posMat);
+        crate2.lightSources = [];
+        crate2.lightSources.push(lightSource2);
+        ourObjects.push(crate2);
+
+        mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [-5.2840, -11.8361, 9.5395]);
+        mat4.rotate(posMat, posMat, degToRad(180), [1, 1, 0]);
+        mat4.rotate(posMat, posMat, 1.06, [1, 0, 0]);
+        crate3.positionMatrix = mat4.clone(posMat);
+        crate3.lightSources = [];
+        crate3.lightSources.push(lightSource3);
+        ourObjects.push(crate3);
+
+        mat4.identity(posMat);
+        mat4.translate(posMat, posMat, [0, -13.3361, 9.5395]);
+        crate4.positionMatrix = mat4.clone(posMat);
+        crate4.lightSources = [];
+        crate4.lightSources.push(lightSource1);
+        crate4.lightSources.push(lightSource2);
+        crate4.lightSources.push(lightSource3);
+        ourObjects.push(crate4);
     }
 
 </script>
@@ -1142,52 +1154,74 @@
     <canvas id="lesson14-canvas" style="border: none;" width="1000" height="500"></canvas>
 
     <br/>
-
+    <div style="float:right">
     <input type="checkbox" id="specular" checked /> Show specular highlight<br/>
     <input type="checkbox" id="lighting" checked /> Use lighting<br/>
+    <input type="checkbox" id="candy" checked /> No Candy Mountain
+    </div>
 
-    <h2>Material:</h2>
+    <div style="float:left">
 
-    <table style="border: 0; padding: 10px;">
+    <table style="border: 0; padding: 10px;" width="40">
         <tr>
             <td><b>Shininess:</b>
             <td><input type="text" id="shininess" value="32.0" />
         </tr>
     </table>
+    </div>
 
-    <h2>Point light:</h2>
+    <div style="float=right">
 
-    <table style="border: 0; padding: 10px;">
+    <table style="border: 0; padding: 10px; float=right" width="100">
+        <col style="width:20%">
         <tr>
-            <td><b>Location:</b>
-            <td>X: <input type="text" id="lightPositionX" value="-70.0" />
-            <td>Y: <input type="text" id="lightPositionY" value="16.0" />
-            <td>Z: <input type="text" id="lightPositionZ" value="-30.0" />
+            <td><b>Location:</b></td>
+            <td width="20">X: <input type="text" id="lightPositionX" value="-70.0" /></td>
+            <td>Y: <input type="text" id="lightPositionY" value="45.0" /></td>
+            <td>Z: <input type="text" id="lightPositionZ" value="-30.0" /></td>
+            <!--
+            <td>X: <input type="text" id="lightPositionX" value="0.58" />
+            <td>Y: <input type="text" id="lightPositionY" value="0.58" />
+            <td>Z: <input type="text" id="lightPositionZ" value="-0.58" />
+            -->
         </tr>
         <tr>
-            <td><b>Specular colour:</b>
-            <td>R: <input type="text" id="specularR" value="0.8" />
-            <td>G: <input type="text" id="specularG" value="0.8" />
-            <td>B: <input type="text" id="specularB" value="0.8" />
+            <td><b>Specular colour:</b></td>
+            <td>R: <input type="text" id="specularR" value="0.8" /></td>
+            <td>G: <input type="text" id="specularG" value="0.8" /></td>
+            <td>B: <input type="text" id="specularB" value="0.8" /></td>
         </tr>
         <tr>
             <td><b>Diffuse colour:</b>
-            <td>R: <input type="text" id="diffuseR" value="0.8" />
-            <td>G: <input type="text" id="diffuseG" value="0.8" />
-            <td>B: <input type="text" id="diffuseB" value="0.8" />
+            <td>R: <input type="text" id="diffuseR" value="0.8" /></td>
+            <td>G: <input type="text" id="diffuseG" value="0.8" /></td>
+            <td>B: <input type="text" id="diffuseB" value="0.8" /></td>
         </tr>
     </table>
+    </div>
 
-    <h2>Ambient light:</h2>
-
-    <table style="border: 0; padding: 10px;">
+    <div style="float=right">
+    <table style="border: 0; padding: 10px; float=right">
         <tr>
-            <td><b>Colour:</b>
-            <td>R: <input type="text" id="ambientR" value="0.1" />
-            <td>G: <input type="text" id="ambientG" value="0.1" />
-            <td>B: <input type="text" id="ambientB" value="0.1" />
+            <tr><b>Colour:</b>
+            <tr>
+                <td>
+                R: <input type="text" id="ambientR" value="0.1" />
+                </td>
+            </tr>
+            <tr>
+                <td>
+                G: <input type="text" id="ambientG" value="0.1" />
+                </td>
+            </tr>
+            <tr>
+                <td>
+                B: <input type="text" id="ambientB" value="0.1" />
+                </td>
+            </tr>
         </tr>
     </table>
+    </div>
     <br/>
 </body>
 

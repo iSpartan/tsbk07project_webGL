@@ -28,7 +28,6 @@ vec3 getNormal() {
 
 vec3 getLightStrength(vec3 light, vec3 color){
     vec3 lightDirection = normalize(light - vPosition.xyz);
-    vec3 white = vec3(1.0, 1.0, 1.0);
     float shade = 0.0;
     vec3 clr;
             //vec3 normal = getNormal();
@@ -48,11 +47,11 @@ vec3 getLightStrength(vec3 light, vec3 color){
             specular = max(specular, 0.0);
 
             shade = 0.7 * diffuse + 0.1 * specular + (0.2 / uAmountOfLightSources);
-            //shade = 0.0 * diffuse + 0.1 * specular + (0.0 / uAmountOfLightSources);
+            //shade = 0.0 * diffuse + 0.0 * specular + (0.4 / uAmountOfLightSources);
 
             //clr = mix(dark, color, 0.1 + 0.9 * diffuse);
             //clr = mix(clr, lght, 0.5 * specular) / uAmountOfLightSources;
-            clr = shade * color * white;
+            clr = shade * color;
             return clr;
 }
 

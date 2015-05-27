@@ -1,0 +1,17 @@
+    attribute vec3 aVertexPosition;
+
+    uniform mat4 uMVMatrix;
+    uniform mat4 camMatrix;
+    uniform mat4 projection;
+    uniform mat4 lightMatrix;
+
+    varying vec4 lightSourceCoord;
+
+    void main(void) {
+
+        vec4 lightPos = lightMatrix*uMVMatrix*vec4(aVertexPosition, 1.);
+
+        lightSourceCoord = lightPos;
+
+        gl_Position = projection * camMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+    }

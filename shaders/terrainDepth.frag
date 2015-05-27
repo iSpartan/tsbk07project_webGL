@@ -3,7 +3,7 @@
     varying vec4 vPosition;
     varying vec3 vTransformedNormal;
     varying vec3 vColorAttrib;
-    varying vec3 lightSourceCoord;
+    varying vec4 lightSourceCoord;
     //varying vec2 vTextureCoord;
 
     uniform sampler2D shadowTex;
@@ -13,15 +13,28 @@
 #extension GL_OES_standard_derivatives : enable
 
 float getShadow(){
+    //vec3 lightPosDNC=lightSourceCoord.xyz/lightSourceCoord.w;
 
-    vec2 shadowMap = lightSourceCoord.xy;
+    //vec2 uv_shadowMap=lightPosDNC.xy;
+    //vec4 shadowMapColor=texture2D(shadowTex, uv_shadowMap);
+    //float zShadowMap=shadowMapColor.r;
+    //if (zShadowMap+0.0022<lightPosDNC.z){
+    //    return 0.3;
+    //}
+    //return 1.0;
 
-    vec4 shadowColor = texture2D(shadowTex, shadowMap);
-    float shw = shadowColor.r + 0.005;
-    //float shadowCoeff=1.-smoothstep(0.002, 0.003, lightSourceCoord.z-shw);
+    vec4 shadowCoordinateWdivide = lightSourceCoord / lightSourceCoord.w;
+    shadowCoordinateWdivide.z -= 0.002;
+
+    float distanceFromLight = texture2D(shadowTex, shadowCoordinateWdivide.st).x;
+    distanceFromLight = (distanceFromLight-0.5) * 2.0;
+    return shadowCoordinateWdivide.z;
     float shadow = 1.0;
-    if (shw < lightSourceCoord.z)
+    //if (lightSourceCoord.w > 0.0) {
+        if (distanceFromLight < shadowCoordinateWdivide.z){ // shadow
         shadow = 0.3;
+        }
+    //}
     return shadow;
 }
 

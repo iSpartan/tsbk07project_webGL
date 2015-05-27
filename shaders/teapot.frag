@@ -9,9 +9,9 @@
     uniform bool uShowSpecularHighlights;
     uniform bool uUseLighting;
 
-    uniform vec3 uAmbientColor;
-
     uniform vec3 uPointLightingLocation;
+
+    uniform vec3 uAmbientColor;
     uniform vec3 uPointLightingSpecularColor;
     uniform vec3 uPointLightingDiffuseColor;
 

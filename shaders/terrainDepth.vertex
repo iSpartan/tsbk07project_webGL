@@ -13,19 +13,19 @@
     varying vec3 vColorAttrib;
     varying vec3 vTransformedNormal;
     varying vec4 vPosition;
-    varying vec3 lightSourceCoord;
+    varying vec4 lightSourceCoord;
 
     //varying vec2 vTexCoord;
 
     void main(void) {
 
-vec4 lightPos = lightMatrix*vec4(aVertexPosition, 1.);
+vec4 lightPos = lightMatrix*uMVMatrix*vec4(aVertexPosition, 1.);
 
-lightPos=lightProjection*lightPos;
+lightSourceCoord = lightPos;
 
-vec3 lightPosDNC=lightPos.xyz/lightPos.w;
+//lightPos=lightProjection*lightPos;
 
-lightSourceCoord=vec3(0.5,0.5,0.5)+lightPosDNC*0.5;
+//lightSourceCoord=vec4(0.5)+lightPos*0.5;
 
 
         //vec4 lightPos = lightProjection * lightMatrix * vec4(aVertexPosition, 1.0);
